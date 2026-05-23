@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bottom-nav-height: 83px;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html {
+  height: -webkit-fill-available;
+}
+
+body {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  background: #F5F5F7;
+  font-feature-settings: 'tnum';
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth scrolling */
+.scroll-smooth {
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbars but keep scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Bottom sheet backdrop */
+.sheet-backdrop {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Number formatting */
+.tabular-nums {
+  font-feature-settings: 'tnum', 'kern';
+}
+
+/* iOS-style press feedback */
+.pressable {
+  transition: opacity 150ms ease, transform 150ms ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.pressable:active {
+  opacity: 0.6;
+  transform: scale(0.97);
+}
+
+/* Safe area padding helpers */
+.pb-safe {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Bottom nav height offset for scroll content */
+.bottom-nav-offset {
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+@layer utilities {
+  .text-profit { color: #30D158; }
+  .text-expense { color: #FF453A; }
+  .text-taquinho { color: #FFCC00; }
+  .bg-profit { background-color: #30D158; }
+  .bg-expense { background-color: #FF453A; }
+  .bg-taquinho { background-color: #FFCC00; }
+}
