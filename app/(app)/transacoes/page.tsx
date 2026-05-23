@@ -2,14 +2,16 @@ import { Suspense } from 'react'
 import { requireAuth } from '@/lib/auth'
 import { getTransactions } from '@/lib/actions/transactions'
 import { TransactionItem } from '@/components/transactions/TransactionItem'
-import { currentMonthISO } from '@/lib/formatters'
 import { Card } from '@/components/ui/Card'
-import { MonthFilter } from '@/components/ui/MonthFilter'
+import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
+import { parseDateRange } from '@/lib/dateRange'
 
 export const dynamic = 'force-dynamic'
 
 interface SearchParams {
-  month?: string
+  range?: string
+  from?: string
+  to?: string
   type?: string
 }
 
@@ -20,10 +22,15 @@ export default async function TransacoesPage({
 }) {
   await requireAuth()
   const params = await searchParams
-  const month = params.month ?? currentMonthISO()
+  const dateRange = parseDateRange(params)
   const type = params.type as never
 
-  const { data: transactions } = await getTransactions({ month, type, limit: 50 })
+  const { data: transactions } = await getTransactions({
+    from: dateRange.from,
+    to: dateRange.to,
+    type,
+    limit: 100,
+  })
 
   const byDate = transactions.reduce<Record<string, typeof transactions>>((acc, tx) => {
     const key = tx.date
@@ -34,26 +41,22 @@ export default async function TransacoesPage({
 
   const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a))
 
-  const monthOpt = new Date(month + '-02')
-  const monthDisplay = monthOpt.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-
   return (
     <div className="px-4 pt-12 animate-page-enter">
       <div className="mb-5">
         <h1 className="text-[28px] font-bold text-ios-primary">Transações</h1>
-        <p className="text-[14px] text-ios-secondary capitalize">{monthDisplay}</p>
+        <p className="text-[14px] text-ios-secondary capitalize">{dateRange.label}</p>
       </div>
 
-      {/* Month filter */}
       <div className="mb-4">
         <Suspense fallback={null}>
-          <MonthFilter value={month} />
+          <DateRangeFilter preset={dateRange.preset} from={dateRange.from} to={dateRange.to} />
         </Suspense>
       </div>
 
       {sortedDates.length === 0 ? (
         <Card className="text-center py-12">
-          <p className="text-[14px] text-ios-secondary">Nenhuma transação este mês.</p>
+          <p className="text-[14px] text-ios-secondary">Nenhuma transação neste período.</p>
           <p className="text-[12px] text-ios-tertiary mt-1">Toque no + para adicionar.</p>
         </Card>
       ) : (

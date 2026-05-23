@@ -265,7 +265,8 @@ export async function deleteTransaction(id: string) {
 
 export async function getTransactions(filters?: {
   type?: TransactionType
-  month?: string
+  from?: string
+  to?: string
   vehicle_id?: string
   limit?: number
   offset?: number
@@ -278,19 +279,14 @@ export async function getTransactions(filters?: {
     .from('transactions')
     .select('*, category:transaction_categories(*), vehicle:vehicles(id, make, model, year)', { count: 'exact' })
     .eq('user_id', user.id)
+    .neq('type', 'vehicle_purchase')
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
 
   if (filters?.type) query = query.eq('type', filters.type)
   if (filters?.vehicle_id) query = query.eq('vehicle_id', filters.vehicle_id)
-  if (filters?.month) {
-    const start = `${filters.month}-01`
-    const end = new Date(
-      new Date(start).getFullYear(),
-      new Date(start).getMonth() + 1, 0
-    ).toISOString().slice(0, 10)
-    query = query.gte('date', start).lte('date', end)
-  }
+  if (filters?.from) query = query.gte('date', filters.from)
+  if (filters?.to) query = query.lte('date', filters.to)
   if (filters?.limit) query = query.limit(filters.limit)
   if (filters?.offset) query = query.range(filters.offset, (filters.offset + (filters.limit ?? 20)) - 1)
 

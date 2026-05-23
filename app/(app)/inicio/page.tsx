@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { parseDateRange } from '@/lib/dateRange'
 import { currentMonthISO } from '@/lib/formatters'
 import { getDashboardStats, getRecentTransactions } from '@/lib/actions/dashboard'
 import { getVehicles, getVehiclesWithProfitBatch } from '@/lib/actions/vehicles'
@@ -17,9 +18,10 @@ export const dynamic = 'force-dynamic'
 async function DashboardContent() {
   await requireAuth()
   const month = currentMonthISO()
+  const { from, to } = parseDateRange({})
 
   const [stats, recentTxs, vehicles] = await Promise.all([
-    getDashboardStats(month),
+    getDashboardStats(from, to),
     getRecentTransactions(5),
     getVehicles(),
   ])

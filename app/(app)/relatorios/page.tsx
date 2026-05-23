@@ -2,11 +2,12 @@ import { Suspense } from 'react'
 import { requireAuth } from '@/lib/auth'
 import { getDashboardStats } from '@/lib/actions/dashboard'
 import { getVehicles, getVehiclesWithProfitBatch } from '@/lib/actions/vehicles'
-import { currentMonthISO, formatBRL, formatMonthYear } from '@/lib/formatters'
+import { formatBRL } from '@/lib/formatters'
+import { parseDateRange } from '@/lib/dateRange'
 import { Card } from '@/components/ui/Card'
 import { MonthlyTrend } from '@/components/home/MonthlyTrend'
 import { SpendingByCategory } from '@/components/home/SpendingByCategory'
-import { MonthFilter } from '@/components/ui/MonthFilter'
+import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { TrendingUp, TrendingDown, Car, DollarSign } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -15,14 +16,14 @@ export const dynamic = 'force-dynamic'
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>
 }) {
   await requireAuth()
   const params = await searchParams
-  const month = params.month ?? currentMonthISO()
+  const dateRange = parseDateRange(params)
 
   const [stats, vehicles] = await Promise.all([
-    getDashboardStats(month),
+    getDashboardStats(dateRange.from, dateRange.to),
     getVehicles('sold'),
   ])
 
@@ -37,13 +38,12 @@ export default async function RelatoriosPage({
     <div className="px-4 pt-12 animate-page-enter">
       <div className="mb-5">
         <h1 className="text-[28px] font-bold text-ios-primary">Relatórios</h1>
-        <p className="text-[14px] text-ios-secondary capitalize">{formatMonthYear(month)}</p>
+        <p className="text-[14px] text-ios-secondary capitalize">{dateRange.label}</p>
       </div>
 
-      {/* Month selector */}
       <div className="mb-5">
         <Suspense fallback={null}>
-          <MonthFilter value={month} />
+          <DateRangeFilter preset={dateRange.preset} from={dateRange.from} to={dateRange.to} />
         </Suspense>
       </div>
 
@@ -91,13 +91,13 @@ export default async function RelatoriosPage({
         ))}
       </div>
 
-      {/* Net profit banner */}
+      {/* Profit banner */}
       <div className={cn(
         'rounded-2xl p-4 mb-4 flex items-center justify-between',
         stats.gross_profit >= 0 ? 'bg-green-50' : 'bg-red-50'
       )}>
         <div>
-          <p className="text-[12px] font-medium text-ios-secondary uppercase tracking-wider">Lucro do Mês</p>
+          <p className="text-[12px] font-medium text-ios-secondary uppercase tracking-wider">Lucro do Período</p>
           <p className={cn(
             'text-[28px] font-bold tabular-nums mt-1',
             stats.gross_profit >= 0 ? 'text-profit' : 'text-expense'
@@ -105,10 +105,7 @@ export default async function RelatoriosPage({
             {stats.gross_profit >= 0 ? '+' : ''}{formatBRL(stats.gross_profit)}
           </p>
         </div>
-        <div className={cn(
-          'text-[28px]',
-          stats.gross_profit >= 0 ? 'text-profit' : 'text-expense'
-        )}>
+        <div className="text-[28px]">
           {stats.gross_profit >= 0 ? '🟢' : '🔴'}
         </div>
       </div>
@@ -163,7 +160,7 @@ export default async function RelatoriosPage({
         </Card>
       )}
 
-      {/* Trend chart */}
+      {/* Monthly trend — always shows last 6 months for context */}
       <MonthlyTrend data={stats.monthly_trend} />
     </div>
   )

@@ -4,14 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import type { DashboardStats } from '@/lib/types'
 
-export async function getDashboardStats(month: string): Promise<DashboardStats> {
+export async function getDashboardStats(from: string, to: string): Promise<DashboardStats> {
   const supabase = await createClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
-
-  const startDate = `${month}-01`
-  const endDate = new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth() + 1, 0)
-    .toISOString().slice(0, 10)
 
   // Operating expenses only — vehicle purchases are inventory assets, not expenses
   const { data: expenseTxs } = await supabase
@@ -19,18 +15,18 @@ export async function getDashboardStats(month: string): Promise<DashboardStats> 
     .select('*, category:transaction_categories(*)')
     .eq('user_id', user.id)
     .eq('type', 'expense')
-    .gte('date', startDate)
-    .lte('date', endDate)
+    .gte('date', from)
+    .lte('date', to)
     .order('date', { ascending: false })
 
-  // Sales this month with vehicle data for profit calculation
+  // Sales in range with vehicle data for profit calculation
   const { data: saleTxs } = await supabase
     .from('transactions')
     .select('amount, vehicle_id, vehicle:vehicles(id, inventory_type, purchase_price, owner_payout_amount)')
     .eq('user_id', user.id)
     .eq('type', 'sale')
-    .gte('date', startDate)
-    .lte('date', endDate)
+    .gte('date', from)
+    .lte('date', to)
 
   const expenses = expenseTxs ?? []
   const sales = saleTxs ?? []
@@ -94,7 +90,8 @@ export async function getDashboardStats(month: string): Promise<DashboardStats> 
     }
   }
 
-  const monthly_trend = await getMonthlyTrend(supabase, user.id, month)
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const monthly_trend = await getMonthlyTrend(supabase, user.id, currentMonth)
 
   return {
     gross_sales,
