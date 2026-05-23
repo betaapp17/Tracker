@@ -3,12 +3,17 @@
 import { useState, useTransition } from 'react'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input } from '@/components/ui/Input'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { ReceiptInput } from '@/components/ui/ReceiptInput'
 import { Button } from '@/components/ui/Button'
 import { addVehiclePurchase } from '@/lib/actions/transactions'
+import { parseCurrencyInput } from '@/lib/currency'
 import { todayISO } from '@/lib/formatters'
+import { uploadReceipt } from '@/lib/receipts'
 
 export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [pending, startTransition] = useTransition()
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [form, setForm] = useState({
     make: '',
     model: '',
@@ -22,22 +27,26 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSubmit = () => {
-    if (!form.make || !form.model || !form.purchase_price) return
+    const purchasePrice = parseCurrencyInput(form.purchase_price)
+    if (!form.make || !form.model || !form.purchase_price || purchasePrice <= 0) return
     startTransition(async () => {
       try {
+        const receiptUrl = receiptFile ? await uploadReceipt(receiptFile) : null
         await addVehiclePurchase({
           make: form.make,
           model: form.model,
           year: Number(form.year),
           plate: form.plate,
-          purchase_price: Number(form.purchase_price),
+          purchase_price: purchasePrice,
           purchase_date: form.purchase_date,
           notes: form.notes,
+          receipt_url: receiptUrl,
         })
         setForm({
           make: '', model: '', year: new Date().getFullYear().toString(),
           plate: '', purchase_price: '', purchase_date: todayISO(), notes: '',
         })
+        setReceiptFile(null)
         onClose()
       } catch { /* ignore */ }
     })
@@ -77,13 +86,10 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
           />
         </div>
 
-        <Input
+        <CurrencyInput
           label="Preço de Compra (R$)"
-          type="number"
-          inputMode="decimal"
-          placeholder="0,00"
           value={form.purchase_price}
-          onChange={e => set('purchase_price', e.target.value)}
+          onChange={value => set('purchase_price', value)}
         />
 
         <Input
@@ -98,6 +104,11 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
           placeholder="Procedência, condições..."
           value={form.notes}
           onChange={e => set('notes', e.target.value)}
+        />
+
+        <ReceiptInput
+          file={receiptFile}
+          onFileChange={setReceiptFile}
         />
 
         <Button onClick={handleSubmit} loading={pending} className="bg-ios-primary text-white mt-2">

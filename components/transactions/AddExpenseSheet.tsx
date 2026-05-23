@@ -3,16 +3,21 @@
 import { useState, useEffect, useTransition } from 'react'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input, Select } from '@/components/ui/Input'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { ReceiptInput } from '@/components/ui/ReceiptInput'
 import { Button } from '@/components/ui/Button'
 import { addExpense, getCategories } from '@/lib/actions/transactions'
 import { getVehicles } from '@/lib/actions/vehicles'
+import { parseCurrencyInput } from '@/lib/currency'
 import { todayISO } from '@/lib/formatters'
+import { uploadReceipt } from '@/lib/receipts'
 import type { TransactionCategory, Vehicle } from '@/lib/types'
 
 export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [pending, startTransition] = useTransition()
   const [categories, setCategories] = useState<TransactionCategory[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [form, setForm] = useState({
     amount: '',
     category_id: '',
@@ -32,19 +37,23 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSubmit = () => {
-    if (!form.amount || Number(form.amount) <= 0) return
+    const amount = parseCurrencyInput(form.amount)
+    if (!form.amount || amount <= 0) return
     startTransition(async () => {
       try {
+        const receiptUrl = receiptFile ? await uploadReceipt(receiptFile) : null
         await addExpense({
-          amount: Number(form.amount),
+          amount,
           category_id: form.category_id || null,
           description: form.description,
           date: form.date,
           payment_method: form.payment_method as never,
           vehicle_id: form.vehicle_id || null,
           notes: form.notes,
+          receipt_url: receiptUrl,
         })
         setForm({ amount: '', category_id: '', description: '', date: todayISO(), payment_method: 'pix', vehicle_id: '', notes: '' })
+        setReceiptFile(null)
         onClose()
       } catch { /* ignore */ }
     })
@@ -53,13 +62,10 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
   return (
     <BottomSheet open={open} onClose={onClose} title="Nova Despesa">
       <div className="space-y-4 pb-6">
-        <Input
+        <CurrencyInput
           label="Valor (R$)"
-          type="number"
-          inputMode="decimal"
-          placeholder="0,00"
           value={form.amount}
-          onChange={e => set('amount', e.target.value)}
+          onChange={value => set('amount', value)}
         />
 
         <Select label="Categoria" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
@@ -105,6 +111,11 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
           placeholder="Detalhes adicionais"
           value={form.notes}
           onChange={e => set('notes', e.target.value)}
+        />
+
+        <ReceiptInput
+          file={receiptFile}
+          onFileChange={setReceiptFile}
         />
 
         <Button

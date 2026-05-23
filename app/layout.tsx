@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import { AppUpdateManager } from '@/components/layout/AppUpdateManager'
 import './globals.css'
 
 const inter = Inter({
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
   },
   icons: {
+    icon: '/icons/icon-192.png',
     apple: '/icons/icon-192.png',
   },
 }
@@ -42,11 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-sans antialiased">
         {children}
-        <script dangerouslySetInnerHTML={{ __html: `
-          if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
-          }
-        `}} />
+        <AppUpdateManager />
       </body>
     </html>
   )

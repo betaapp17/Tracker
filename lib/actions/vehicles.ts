@@ -2,11 +2,25 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 import type { VehicleStatus, VehicleWithProfit } from '@/lib/types'
+
+export interface UpdateVehicleInput {
+  id: string
+  make: string
+  model: string
+  year: number
+  plate: string
+  purchase_price: number
+  purchase_date: string
+  status: VehicleStatus
+  notes: string
+  receipt_url: string | null
+}
 
 export async function getVehicles(status?: VehicleStatus) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) return []
 
   let query = supabase
@@ -23,7 +37,7 @@ export async function getVehicles(status?: VehicleStatus) {
 
 export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfit | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) return null
 
   const { data: vehicle } = await supabase
@@ -70,7 +84,7 @@ export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfi
 
 export async function updateVehicleStatus(id: string, status: VehicleStatus) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
   await supabase
@@ -82,9 +96,50 @@ export async function updateVehicleStatus(id: string, status: VehicleStatus) {
   revalidatePath('/', 'layout')
 }
 
+export async function updateVehicle(input: UpdateVehicleInput) {
+  const supabase = await createClient()
+  const user = await getCurrentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { error } = await supabase
+    .from('vehicles')
+    .update({
+      make: input.make,
+      model: input.model,
+      year: input.year,
+      plate: input.plate || null,
+      purchase_price: input.purchase_price,
+      purchase_date: input.purchase_date,
+      status: input.status,
+      notes: input.notes || null,
+      receipt_url: input.receipt_url,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.id)
+    .eq('user_id', user.id)
+
+  if (error) throw new Error(error.message)
+
+  await supabase
+    .from('transactions')
+    .update({
+      amount: input.purchase_price,
+      date: input.purchase_date,
+      description: `Compra: ${input.year} ${input.make} ${input.model}`,
+      notes: input.notes || null,
+      receipt_url: input.receipt_url,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('vehicle_id', input.id)
+    .eq('type', 'vehicle_purchase')
+    .eq('user_id', user.id)
+
+  revalidatePath('/', 'layout')
+}
+
 export async function deleteVehicle(id: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
   await supabase.from('vehicles').delete().eq('id', id).eq('user_id', user.id)

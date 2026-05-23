@@ -24,6 +24,7 @@ export interface Vehicle {
   purchase_date: string
   status: VehicleStatus
   notes: string | null
+  receipt_url: string | null
   created_at: string
   updated_at: string
 }

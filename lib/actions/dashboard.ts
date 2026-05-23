@@ -1,11 +1,12 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 import type { DashboardStats } from '@/lib/types'
 
 export async function getDashboardStats(month: string): Promise<DashboardStats> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
   const startDate = `${month}-01`
@@ -106,7 +107,7 @@ async function getMonthlyTrend(
 
 export async function getRecentTransactions(limit = 10) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) return []
 
   const { data } = await supabase

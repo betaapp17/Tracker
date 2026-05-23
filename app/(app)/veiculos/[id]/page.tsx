@@ -6,6 +6,7 @@ import { getVehicleWithProfit } from '@/lib/actions/vehicles'
 import { formatBRL, formatDateFull } from '@/lib/formatters'
 import { Card } from '@/components/ui/Card'
 import { TransactionItem } from '@/components/transactions/TransactionItem'
+import { EditVehicleButton } from '@/components/vehicles/EditVehicleButton'
 import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -52,6 +53,10 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
           <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
             <Car className="w-6 h-6 text-white/60" />
           </div>
+        </div>
+
+        <div className="mb-4">
+          <EditVehicleButton vehicle={vehicle} />
         </div>
 
         {vehicle.plate && (
@@ -117,6 +122,14 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         <div className="space-y-2">
           <Row label="Data de Compra" value={formatDateFull(vehicle.purchase_date)} />
           {vehicle.notes && <Row label="Observações" value={vehicle.notes} />}
+          {vehicle.receipt_url && (
+            <div className="pt-2">
+              <p className="text-[13px] text-ios-secondary mb-2">Comprovante</p>
+              <a href={vehicle.receipt_url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl bg-ios-fill">
+                <img src={vehicle.receipt_url} alt="Comprovante do veículo" className="h-40 w-full object-cover" />
+              </a>
+            </div>
+          )}
         </div>
       </Card>
 

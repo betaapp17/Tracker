@@ -6,6 +6,7 @@
 .env.local
 .env.*.local
 /supabase/.temp/
+/public/app-version.json
 /public/workbox-*.js
 /public/swe-worker-*.js
 npm-debug.log*

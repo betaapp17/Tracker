@@ -3,15 +3,20 @@
 import { useState, useEffect, useTransition } from 'react'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input, Select } from '@/components/ui/Input'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { ReceiptInput } from '@/components/ui/ReceiptInput'
 import { Button } from '@/components/ui/Button'
 import { addSale } from '@/lib/actions/transactions'
 import { getVehicles } from '@/lib/actions/vehicles'
+import { parseCurrencyInput } from '@/lib/currency'
 import { todayISO } from '@/lib/formatters'
+import { uploadReceipt } from '@/lib/receipts'
 import type { Vehicle } from '@/lib/types'
 
 export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [pending, startTransition] = useTransition()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [form, setForm] = useState({
     vehicle_id: '',
     amount: '',
@@ -28,17 +33,21 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSubmit = () => {
-    if (!form.vehicle_id || !form.amount || Number(form.amount) <= 0) return
+    const amount = parseCurrencyInput(form.amount)
+    if (!form.vehicle_id || !form.amount || amount <= 0) return
     startTransition(async () => {
       try {
+        const receiptUrl = receiptFile ? await uploadReceipt(receiptFile) : null
         await addSale({
           vehicle_id: form.vehicle_id,
-          amount: Number(form.amount),
+          amount,
           date: form.date,
           payment_method: form.payment_method as never,
           notes: form.notes,
+          receipt_url: receiptUrl,
         })
         setForm({ vehicle_id: '', amount: '', date: todayISO(), payment_method: 'pix', notes: '' })
+        setReceiptFile(null)
         onClose()
       } catch { /* ignore */ }
     })
@@ -60,13 +69,10 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
           </p>
         )}
 
-        <Input
+        <CurrencyInput
           label="Preço de Venda (R$)"
-          type="number"
-          inputMode="decimal"
-          placeholder="0,00"
           value={form.amount}
-          onChange={e => set('amount', e.target.value)}
+          onChange={value => set('amount', value)}
         />
 
         <Input
@@ -89,6 +95,11 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
           placeholder="Nome do comprador, detalhes..."
           value={form.notes}
           onChange={e => set('notes', e.target.value)}
+        />
+
+        <ReceiptInput
+          file={receiptFile}
+          onFileChange={setReceiptFile}
         />
 
         <Button onClick={handleSubmit} loading={pending} className="bg-profit text-white mt-2">

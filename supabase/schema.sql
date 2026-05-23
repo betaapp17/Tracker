@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
   status          TEXT NOT NULL DEFAULT 'in_stock'
                     CHECK (status IN ('in_stock', 'sold', 'archived')),
   notes           TEXT,
+  receipt_url     TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );

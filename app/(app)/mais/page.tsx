@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function MaisPage() {
   const user = await requireAuth()
+  const isDemo = 'isDemo' in user
 
   return (
     <div className="px-4 pt-12">
@@ -18,8 +19,12 @@ export default async function MaisPage() {
           <User className="w-7 h-7 text-taquinho" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[16px] font-semibold text-ios-primary">Minha Conta</p>
-          <p className="text-[13px] text-ios-secondary truncate">{user?.email}</p>
+          <p className="text-[16px] font-semibold text-ios-primary">
+            {isDemo ? 'Modo Demonstração' : 'Minha Conta'}
+          </p>
+          <p className="text-[13px] text-ios-secondary truncate">
+            {isDemo ? 'Login temporariamente desativado' : user?.email}
+          </p>
         </div>
       </Card>
 
@@ -60,7 +65,7 @@ export default async function MaisPage() {
         <p className="text-[12px] text-ios-secondary mt-1">Versão 1.0.0</p>
       </Card>
 
-      <LogoutButton />
+      {!isDemo && <LogoutButton />}
     </div>
   )
 }
