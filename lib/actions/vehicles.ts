@@ -103,7 +103,7 @@ export async function getInventoryStats(): Promise<InventoryStats> {
 
   const { data: vehicles } = await supabase
     .from('vehicles')
-    .select('id, inventory_type, purchase_price, owner_payout_amount, estimated_sale_price')
+    .select('*')
     .eq('user_id', user.id)
     .eq('status', 'in_stock')
 

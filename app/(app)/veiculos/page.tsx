@@ -111,34 +111,34 @@ function InventoryStatsCard({ stats }: { stats: InventoryStats }) {
 
       {/* Secondary stats row */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="!p-3 space-y-1">
+        <Card padding="sm" className="space-y-1.5">
           <div className="w-7 h-7 bg-blue-50 rounded-xl flex items-center justify-center">
             <Wallet className="w-3.5 h-3.5 text-blue-600" />
           </div>
           <p className="text-[15px] font-bold tabular-nums text-ios-primary leading-tight">
             {formatBRLCompact(stats.total_invested)}
           </p>
-          <p className="text-[10px] text-ios-secondary">Investido</p>
+          <p className="text-[10px] text-ios-tertiary leading-tight">Capital investido</p>
         </Card>
 
-        <Card className="!p-3 space-y-1">
+        <Card padding="sm" className="space-y-1.5">
           <div className={cn('w-7 h-7 rounded-xl flex items-center justify-center', stats.potential_profit >= 0 ? 'bg-green-50' : 'bg-red-50')}>
             <TrendingUp className={cn('w-3.5 h-3.5', stats.potential_profit >= 0 ? 'text-profit' : 'text-expense')} />
           </div>
           <p className={cn('text-[15px] font-bold tabular-nums leading-tight', stats.potential_profit >= 0 ? 'text-profit' : 'text-expense')}>
             {stats.potential_profit >= 0 ? '+' : ''}{formatBRLCompact(stats.potential_profit)}
           </p>
-          <p className="text-[10px] text-ios-secondary">Lucro potencial</p>
+          <p className="text-[10px] text-ios-tertiary leading-tight">Lucro potencial</p>
         </Card>
 
-        <Card className="!p-3 space-y-1">
+        <Card padding="sm" className="space-y-1.5">
           <div className="w-7 h-7 bg-amber-50 rounded-xl flex items-center justify-center">
             <Handshake className="w-3.5 h-3.5 text-amber-600" />
           </div>
           <p className="text-[15px] font-bold tabular-nums text-ios-primary leading-tight">
             {stats.consigned_count}
           </p>
-          <p className="text-[10px] text-ios-secondary">Consignados</p>
+          <p className="text-[10px] text-ios-tertiary leading-tight">Consignados</p>
         </Card>
       </div>
     </div>

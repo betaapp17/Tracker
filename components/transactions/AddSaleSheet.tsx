@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input, Select } from '@/components/ui/Input'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
@@ -14,6 +15,7 @@ import { uploadReceipt } from '@/lib/receipts'
 import type { Vehicle } from '@/lib/types'
 
 export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
@@ -52,6 +54,7 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
         setForm({ vehicle_id: '', amount: '', date: todayISO(), payment_method: 'pix', notes: '' })
         setReceiptFile(null)
         onClose()
+        router.refresh()
       } catch { /* ignore */ }
     })
   }

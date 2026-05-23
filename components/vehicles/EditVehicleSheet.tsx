@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
@@ -20,6 +21,7 @@ interface EditVehicleSheetProps {
 }
 
 export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetProps) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [deletePending, startDeleteTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -68,6 +70,7 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
         await deleteVehicle(vehicle.id)
         setConfirmDelete(false)
         onClose()
+        router.refresh()
       } catch { /* ignore */ }
     })
   }
@@ -103,6 +106,7 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
         })
 
         onClose()
+        router.refresh()
       } catch {
         // Keep sheet open on error
       }

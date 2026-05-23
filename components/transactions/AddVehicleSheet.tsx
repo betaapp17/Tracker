@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input } from '@/components/ui/Input'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
@@ -27,6 +28,7 @@ const emptyForm = {
 }
 
 export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [inventoryType, setInventoryType] = useState<InventoryType>('owned')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
@@ -64,6 +66,7 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
         setReceiptFile(null)
         setInventoryType('owned')
         onClose()
+        router.refresh()
       } catch { /* ignore */ }
     })
   }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
@@ -20,6 +21,7 @@ interface EditTransactionSheetProps {
 }
 
 export function EditTransactionSheet({ transaction, open, onClose }: EditTransactionSheetProps) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [deletePending, startDeleteTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -81,6 +83,7 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
         })
 
         onClose()
+        router.refresh()
       } catch {
         // Keep the sheet open so the user can retry.
       }
@@ -93,6 +96,7 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
         await deleteTransaction(transaction.id)
         setConfirmDelete(false)
         onClose()
+        router.refresh()
       } catch { /* ignore */ }
     })
   }

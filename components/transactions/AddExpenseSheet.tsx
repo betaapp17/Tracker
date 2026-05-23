@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input, Select } from '@/components/ui/Input'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
@@ -14,6 +15,7 @@ import { uploadReceipt } from '@/lib/receipts'
 import type { TransactionCategory, Vehicle } from '@/lib/types'
 
 export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [categories, setCategories] = useState<TransactionCategory[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -55,6 +57,7 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
         setForm({ amount: '', category_id: '', description: '', date: todayISO(), payment_method: 'pix', vehicle_id: '', notes: '' })
         setReceiptFile(null)
         onClose()
+        router.refresh()
       } catch { /* ignore */ }
     })
   }
