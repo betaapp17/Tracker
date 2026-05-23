@@ -96,7 +96,8 @@ export async function getInventoryStats(): Promise<InventoryStats> {
 
   const empty: InventoryStats = {
     cars_in_stock: 0, owned_count: 0, consigned_count: 0,
-    total_invested: 0, owned_value: 0, consigned_value: 0, potential_profit: 0,
+    total_invested: 0, owned_value: 0, consigned_value: 0,
+    total_market_value: 0, potential_profit: 0, missing_estimate_count: 0,
   }
   if (!user) return empty
 
@@ -127,14 +128,23 @@ export async function getInventoryStats(): Promise<InventoryStats> {
   const consigned = vehicles.filter(v => v.inventory_type === 'consigned')
 
   let owned_value = 0
+  let total_market_value = 0
   let potential_profit = 0
+  let missing_estimate_count = 0
 
   for (const v of owned) {
     const linked = expenseMap.get(v.id) ?? 0
     const cost = Number(v.purchase_price) + linked
     owned_value += cost
+
     if (v.estimated_sale_price) {
-      potential_profit += Number(v.estimated_sale_price) - cost
+      const estPrice = Number(v.estimated_sale_price)
+      total_market_value += estPrice
+      potential_profit += estPrice - cost
+    } else {
+      // Fall back to cost basis as minimum known value
+      total_market_value += cost
+      missing_estimate_count++
     }
   }
 
@@ -143,8 +153,13 @@ export async function getInventoryStats(): Promise<InventoryStats> {
     const linked = expenseMap.get(v.id) ?? 0
     const payout = Number(v.owner_payout_amount ?? 0)
     consigned_value += payout
+
     if (v.estimated_sale_price) {
-      potential_profit += Number(v.estimated_sale_price) - payout - linked
+      const estPrice = Number(v.estimated_sale_price)
+      total_market_value += estPrice
+      potential_profit += estPrice - payout - linked
+    } else {
+      missing_estimate_count++
     }
   }
 
@@ -155,7 +170,9 @@ export async function getInventoryStats(): Promise<InventoryStats> {
     total_invested: owned_value,
     owned_value,
     consigned_value,
+    total_market_value,
     potential_profit,
+    missing_estimate_count,
   }
 }
 

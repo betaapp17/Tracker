@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { requireAuth } from '@/lib/auth'
 import { getVehicles, getInventoryStats } from '@/lib/actions/vehicles'
-import { formatBRL, formatDate, daysInStock, formatDaysInStock } from '@/lib/formatters'
-import { Car, ChevronRight, Package, CheckCircle, TrendingUp, Wallet, Handshake, Key } from 'lucide-react'
+import { formatBRL, formatBRLCompact, formatDate, daysInStock, formatDaysInStock } from '@/lib/formatters'
+import { Car, ChevronRight, Package, CheckCircle, TrendingUp, Wallet, Handshake } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
 import type { InventoryStats } from '@/lib/types'
@@ -90,70 +90,61 @@ export default async function VeiculosPage() {
 
 function InventoryStatsCard({ stats }: { stats: InventoryStats }) {
   return (
-    <Card className="mb-1">
-      <p className="text-[14px] font-semibold text-ios-primary mb-4">Resumo do Estoque</p>
-      <div className="grid grid-cols-2 gap-3">
-        <StatItem
-          icon={Wallet}
-          iconBg="bg-blue-50"
-          iconColor="text-blue-600"
-          label="Capital Investido"
-          value={formatBRL(stats.total_invested)}
-        />
-        <StatItem
-          icon={TrendingUp}
-          iconBg="bg-green-50"
-          iconColor="text-profit"
-          label="Lucro Potencial"
-          value={formatBRL(stats.potential_profit)}
-          valueColor={stats.potential_profit >= 0 ? 'text-profit' : 'text-expense'}
-        />
-        <StatItem
-          icon={Key}
-          iconBg="bg-blue-50"
-          iconColor="text-blue-600"
-          label={`Próprios (${stats.owned_count})`}
-          value={formatBRL(stats.owned_value)}
-        />
-        <StatItem
-          icon={Handshake}
-          iconBg="bg-amber-50"
-          iconColor="text-amber-600"
-          label={`Consignados (${stats.consigned_count})`}
-          value={formatBRL(stats.consigned_value)}
-          valueNote="repasse"
-        />
+    <div className="mb-1 space-y-3">
+      {/* Hero: total market value */}
+      <div className="bg-ios-primary rounded-3xl px-6 py-5 text-white">
+        <p className="text-[12px] font-medium text-white/50 uppercase tracking-wider mb-1">
+          Valor do Estoque
+        </p>
+        <p className="text-[38px] font-bold tabular-nums leading-none text-taquinho">
+          {formatBRL(stats.total_market_value)}
+        </p>
+        <p className="text-[13px] text-white/50 mt-2">
+          {stats.cars_in_stock} {stats.cars_in_stock === 1 ? 'carro' : 'carros'} em estoque
+          {stats.missing_estimate_count > 0 && (
+            <span className="text-orange-300">
+              {' '}· {stats.missing_estimate_count} sem preço estimado
+            </span>
+          )}
+        </p>
       </div>
-    </Card>
-  )
-}
 
-function StatItem({
-  icon: Icon, iconBg, iconColor, label, value, valueColor, valueNote,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  iconBg: string
-  iconColor: string
-  label: string
-  value: string
-  valueColor?: string
-  valueNote?: string
-}) {
-  return (
-    <div className="bg-ios-fill rounded-2xl p-3">
-      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center mb-2', iconBg)}>
-        <Icon className={cn('w-4 h-4', iconColor)} />
+      {/* Secondary stats row */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="!p-3 space-y-1">
+          <div className="w-7 h-7 bg-blue-50 rounded-xl flex items-center justify-center">
+            <Wallet className="w-3.5 h-3.5 text-blue-600" />
+          </div>
+          <p className="text-[15px] font-bold tabular-nums text-ios-primary leading-tight">
+            {formatBRLCompact(stats.total_invested)}
+          </p>
+          <p className="text-[10px] text-ios-secondary">Investido</p>
+        </Card>
+
+        <Card className="!p-3 space-y-1">
+          <div className={cn('w-7 h-7 rounded-xl flex items-center justify-center', stats.potential_profit >= 0 ? 'bg-green-50' : 'bg-red-50')}>
+            <TrendingUp className={cn('w-3.5 h-3.5', stats.potential_profit >= 0 ? 'text-profit' : 'text-expense')} />
+          </div>
+          <p className={cn('text-[15px] font-bold tabular-nums leading-tight', stats.potential_profit >= 0 ? 'text-profit' : 'text-expense')}>
+            {stats.potential_profit >= 0 ? '+' : ''}{formatBRLCompact(stats.potential_profit)}
+          </p>
+          <p className="text-[10px] text-ios-secondary">Lucro potencial</p>
+        </Card>
+
+        <Card className="!p-3 space-y-1">
+          <div className="w-7 h-7 bg-amber-50 rounded-xl flex items-center justify-center">
+            <Handshake className="w-3.5 h-3.5 text-amber-600" />
+          </div>
+          <p className="text-[15px] font-bold tabular-nums text-ios-primary leading-tight">
+            {stats.consigned_count}
+          </p>
+          <p className="text-[10px] text-ios-secondary">Consignados</p>
+        </Card>
       </div>
-      <p className={cn('text-[15px] font-bold tabular-nums leading-tight', valueColor ?? 'text-ios-primary')}>
-        {value}
-      </p>
-      {valueNote && (
-        <p className="text-[10px] text-ios-tertiary">{valueNote}</p>
-      )}
-      <p className="text-[11px] text-ios-secondary mt-0.5">{label}</p>
     </div>
   )
 }
+
 
 function VehicleRow({ vehicle }: { vehicle: Awaited<ReturnType<typeof getVehicles>>[0] }) {
   const cfg = statusConfig[vehicle.status as keyof typeof statusConfig] ?? statusConfig.in_stock

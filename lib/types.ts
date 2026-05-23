@@ -81,5 +81,7 @@ export interface InventoryStats {
   total_invested: number
   owned_value: number
   consigned_value: number
+  total_market_value: number
   potential_profit: number
+  missing_estimate_count: number
 }
