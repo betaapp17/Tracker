@@ -11,7 +11,8 @@ interface Props {
 export function ProfitBreakdownCard({ consignmentProfit, ownedProfit }: Props) {
   return (
     <Card>
-      <p className="text-[14px] font-semibold text-ios-primary mb-4">Lucro por Tipo de Veículo</p>
+      <p className="text-[14px] font-semibold text-ios-primary">Lucro por Tipo de Veículo</p>
+      <p className="text-[11px] text-ios-tertiary mb-4">Lucro realizado nos carros vendidos este mês</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-amber-50 rounded-2xl p-4">
           <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center mb-3">

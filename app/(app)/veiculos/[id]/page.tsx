@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { requireAuth } from '@/lib/auth'
 import { ChevronLeft, Car, TrendingUp, Handshake, Key } from 'lucide-react'
 import { getVehicleWithProfit } from '@/lib/actions/vehicles'
-import { formatBRL, formatDateFull } from '@/lib/formatters'
+import { formatBRL, formatDateFull, daysInStock, formatDaysInStock } from '@/lib/formatters'
 import { Card } from '@/components/ui/Card'
 import { TransactionItem } from '@/components/transactions/TransactionItem'
 import { EditVehicleButton } from '@/components/vehicles/EditVehicleButton'
@@ -21,6 +21,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
 
   const hasSale = vehicle.sale_price !== null
   const isConsigned = vehicle.inventory_type === 'consigned'
+  const days = vehicle.status === 'in_stock' ? daysInStock(vehicle.purchase_date) : null
   const profitColor = !hasSale ? 'text-ios-secondary'
     : vehicle.profit! >= 0 ? 'text-profit' : 'text-expense'
 
@@ -74,11 +75,26 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
           <EditVehicleButton vehicle={vehicle} />
         </div>
 
-        {vehicle.plate && (
-          <div className="inline-flex px-3 py-1 bg-white/10 rounded-lg mb-4">
-            <span className="text-[13px] font-mono text-white/80">{vehicle.plate}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-wrap mb-4">
+          {vehicle.plate && (
+            <div className="inline-flex px-3 py-1 bg-white/10 rounded-lg">
+              <span className="text-[13px] font-mono text-white/80">{vehicle.plate}</span>
+            </div>
+          )}
+          {days !== null && (
+            <div className={cn(
+              'inline-flex px-3 py-1 rounded-lg',
+              days >= 60 ? 'bg-orange-400/20' : 'bg-white/10'
+            )}>
+              <span className={cn(
+                'text-[12px] font-medium',
+                days >= 60 ? 'text-orange-300' : 'text-white/70'
+              )}>
+                {formatDaysInStock(days)}
+              </span>
+            </div>
+          )}
+        </div>
 
         <div>
           <p className="text-[12px] text-white/50 mb-1">

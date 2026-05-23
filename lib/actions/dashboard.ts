@@ -37,7 +37,6 @@ export async function getDashboardStats(month: string): Promise<DashboardStats> 
 
   const gross_sales = sales.reduce((s, t) => s + Number(t.amount), 0)
   const operating_expenses = expenses.reduce((s, t) => s + Number(t.amount), 0)
-  const gross_profit = gross_sales - operating_expenses
   const cars_sold = sales.length
 
   // Get all expenses ever linked to vehicles sold this month (for per-vehicle profit)
@@ -74,6 +73,8 @@ export async function getDashboardStats(month: string): Promise<DashboardStats> 
     }
   }
 
+  // gross_profit = vehicle profits (COGS already deducted) minus operating expenses
+  const gross_profit = (owned_profit + consignment_profit) - operating_expenses
   const avg_profit_per_car = cars_sold > 0 ? (owned_profit + consignment_profit) / cars_sold : 0
 
   // Expenses by category (operating only)

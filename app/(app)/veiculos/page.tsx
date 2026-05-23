@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireAuth } from '@/lib/auth'
 import { getVehicles, getInventoryStats } from '@/lib/actions/vehicles'
-import { formatBRL, formatDate } from '@/lib/formatters'
+import { formatBRL, formatDate, daysInStock, formatDaysInStock } from '@/lib/formatters'
 import { Car, ChevronRight, Package, CheckCircle, TrendingUp, Wallet, Handshake, Key } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
@@ -159,10 +159,15 @@ function VehicleRow({ vehicle }: { vehicle: Awaited<ReturnType<typeof getVehicle
   const cfg = statusConfig[vehicle.status as keyof typeof statusConfig] ?? statusConfig.in_stock
   const StatusIcon = cfg.icon
   const isConsigned = vehicle.inventory_type === 'consigned'
+  const inStock = vehicle.status === 'in_stock'
 
   const displayPrice = isConsigned
     ? (vehicle.owner_payout_amount ?? 0)
     : vehicle.purchase_price
+
+  const days = inStock ? daysInStock(vehicle.purchase_date) : null
+  const daysLabel = days !== null ? formatDaysInStock(days) : null
+  const daysColor = days !== null && days >= 60 ? 'text-orange-500' : 'text-ios-tertiary'
 
   return (
     <Link href={`/veiculos/${vehicle.id}`} className="flex items-center gap-3 px-4 py-3.5 pressable">
@@ -180,13 +185,17 @@ function VehicleRow({ vehicle }: { vehicle: Awaited<ReturnType<typeof getVehicle
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-0.5">
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
           {vehicle.plate && (
             <span className="text-[11px] text-ios-tertiary">{vehicle.plate} ·</span>
           )}
-          <span className="text-[11px] text-ios-tertiary">
-            {vehicle.status === 'in_stock' ? 'Entrada' : 'Compra'} {formatDate(vehicle.purchase_date)}
-          </span>
+          {daysLabel ? (
+            <span className={cn('text-[11px] font-medium', daysColor)}>{daysLabel}</span>
+          ) : (
+            <span className="text-[11px] text-ios-tertiary">
+              Vendido {formatDate(vehicle.purchase_date)}
+            </span>
+          )}
         </div>
       </div>
       <div className="text-right flex-shrink-0">

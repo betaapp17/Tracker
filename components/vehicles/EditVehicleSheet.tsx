@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/Button'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { Input, Select } from '@/components/ui/Input'
 import { ReceiptInput } from '@/components/ui/ReceiptInput'
-import { updateVehicle } from '@/lib/actions/vehicles'
+import { updateVehicle, deleteVehicle } from '@/lib/actions/vehicles'
 import { currencyInputFromNumber, parseCurrencyInput } from '@/lib/currency'
 import { uploadReceipt } from '@/lib/receipts'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { cn } from '@/lib/utils'
 import type { VehicleWithProfit, VehicleStatus, InventoryType } from '@/lib/types'
 
@@ -20,6 +21,8 @@ interface EditVehicleSheetProps {
 
 export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetProps) {
   const [pending, startTransition] = useTransition()
+  const [deletePending, startDeleteTransition] = useTransition()
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptUrl, setReceiptUrl] = useState(vehicle.receipt_url)
   const [form, setForm] = useState({
@@ -59,6 +62,18 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
 
   const isConsigned = form.inventory_type === 'consigned'
 
+  const handleDelete = () => {
+    startDeleteTransition(async () => {
+      try {
+        await deleteVehicle(vehicle.id)
+        setConfirmDelete(false)
+        onClose()
+      } catch { /* ignore */ }
+    })
+  }
+
+  const linkedCount = vehicle.transactions.filter(t => t.type !== 'vehicle_purchase').length
+
   const handleSave = () => {
     const purchase_price = isConsigned ? 0 : parseCurrencyInput(form.purchase_price)
     const owner_payout = isConsigned ? parseCurrencyInput(form.owner_payout_amount) : null
@@ -95,6 +110,7 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
   }
 
   return (
+    <>
     <BottomSheet open={open} onClose={onClose} title="Editar Veículo">
       <div className="space-y-4 pb-6">
 
@@ -175,7 +191,30 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
         <Button onClick={handleSave} loading={pending}>
           Salvar Alterações
         </Button>
+
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="w-full py-3 text-[14px] font-medium text-expense text-center pressable mt-1"
+        >
+          Excluir veículo
+        </button>
       </div>
     </BottomSheet>
+
+    <ConfirmModal
+      open={confirmDelete}
+      onClose={() => setConfirmDelete(false)}
+      onConfirm={handleDelete}
+      loading={deletePending}
+      title="Excluir veículo?"
+      message={`${vehicle.year} ${vehicle.make} ${vehicle.model} será removido permanentemente.`}
+      warning={
+        linkedCount > 0
+          ? `Este veículo tem ${linkedCount} transação${linkedCount > 1 ? 'ões' : ''} vinculada${linkedCount > 1 ? 's' : ''} (despesas ou vendas). Elas serão desvinculadas do veículo, mas não excluídas.`
+          : undefined
+      }
+      confirmLabel="Sim, excluir veículo"
+    />
+    </>
   )
 }

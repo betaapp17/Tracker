@@ -3,10 +3,11 @@
 import { useEffect, useState, useTransition } from 'react'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { Input, Select } from '@/components/ui/Input'
 import { ReceiptInput } from '@/components/ui/ReceiptInput'
-import { getCategories, updateTransaction } from '@/lib/actions/transactions'
+import { getCategories, updateTransaction, deleteTransaction } from '@/lib/actions/transactions'
 import { getVehicles } from '@/lib/actions/vehicles'
 import { currencyInputFromNumber, parseCurrencyInput } from '@/lib/currency'
 import { uploadReceipt } from '@/lib/receipts'
@@ -20,6 +21,8 @@ interface EditTransactionSheetProps {
 
 export function EditTransactionSheet({ transaction, open, onClose }: EditTransactionSheetProps) {
   const [pending, startTransition] = useTransition()
+  const [deletePending, startDeleteTransition] = useTransition()
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [categories, setCategories] = useState<TransactionCategory[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
@@ -84,10 +87,28 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
     })
   }
 
+  const handleDelete = () => {
+    startDeleteTransition(async () => {
+      try {
+        await deleteTransaction(transaction.id)
+        setConfirmDelete(false)
+        onClose()
+      } catch { /* ignore */ }
+    })
+  }
+
+  const typeLabels: Record<string, string> = {
+    expense: 'despesa',
+    sale: 'venda',
+    vehicle_purchase: 'compra de veículo',
+    adjustment: 'ajuste',
+  }
+
   const showCategory = transaction.type === 'expense'
   const showVehicle = transaction.type !== 'adjustment'
 
   return (
+    <>
     <BottomSheet open={open} onClose={onClose} title="Editar Transação">
       <div className="space-y-4 pb-6">
         <CurrencyInput
@@ -155,7 +176,25 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
         <Button onClick={handleSave} loading={pending}>
           Salvar Alterações
         </Button>
+
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="w-full py-3 text-[14px] font-medium text-expense text-center pressable mt-1"
+        >
+          Excluir {typeLabels[transaction.type] ?? 'transação'}
+        </button>
       </div>
     </BottomSheet>
+
+    <ConfirmModal
+      open={confirmDelete}
+      onClose={() => setConfirmDelete(false)}
+      onConfirm={handleDelete}
+      loading={deletePending}
+      title="Excluir transação?"
+      message={`Esta ${typeLabels[transaction.type] ?? 'transação'} de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(transaction.amount))} será removida permanentemente.`}
+      confirmLabel="Sim, excluir"
+    />
+    </>
   )
 }

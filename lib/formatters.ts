@@ -65,6 +65,21 @@ export function currentMonthISO(): string {
   return new Date().toISOString().slice(0, 7)
 }
 
+export function daysInStock(purchaseDateStr: string): number {
+  const purchase = new Date(purchaseDateStr + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.floor((today.getTime() - purchase.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+export function formatDaysInStock(days: number): string {
+  if (days === 0) return 'Entrou hoje'
+  if (days === 1) return '1 dia em estoque'
+  if (days < 30) return `${days} dias em estoque`
+  const months = Math.floor(days / 30)
+  return months === 1 ? '1 mês em estoque' : `${months} meses em estoque`
+}
+
 export function paymentMethodLabel(method: string | null): string {
   const map: Record<string, string> = {
     cash: 'Dinheiro',
