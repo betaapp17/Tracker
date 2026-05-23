@@ -1,7 +1,6 @@
 'use client'
 
 import { Input } from '@/components/ui/Input'
-import { formatCurrencyInput } from '@/lib/currency'
 
 interface CurrencyInputProps {
   label: string
@@ -12,6 +11,17 @@ interface CurrencyInputProps {
   error?: string
 }
 
+// Converts a raw digit string (representing centavos) to formatted BRL
+// "12000000" → "120.000,00"
+function centsToFormatted(digits: string): string {
+  const n = parseInt(digits, 10)
+  if (!digits || n === 0) return ''
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n / 100)
+}
+
 export function CurrencyInput({
   label,
   value,
@@ -20,6 +30,12 @@ export function CurrencyInput({
   helper,
   error,
 }: CurrencyInputProps) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Strip everything except digits, then treat as centavos integer
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 13)
+    onChange(centsToFormatted(digits))
+  }
+
   return (
     <div className="space-y-1.5">
       <label className="block text-[13px] font-medium text-ios-secondary">
@@ -30,12 +46,12 @@ export function CurrencyInput({
           R$
         </span>
         <Input
-          inputMode="decimal"
+          inputMode="numeric"
           placeholder={placeholder}
           value={value}
           error={error}
           helper={helper}
-          onChange={event => onChange(formatCurrencyInput(event.target.value))}
+          onChange={handleChange}
           className="pl-11 tabular-nums"
         />
       </div>

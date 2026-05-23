@@ -32,7 +32,7 @@ export function parseCurrencyInput(value: string): number {
 export function currencyInputFromNumber(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === '') return ''
   const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return ''
+  if (!Number.isFinite(numeric) || numeric === 0) return ''
 
   return new Intl.NumberFormat('pt-BR', {
     minimumFractionDigits: 2,
