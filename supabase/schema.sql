@@ -88,10 +88,14 @@ CREATE POLICY "own_categories" ON transaction_categories
 -- ============================================================
 -- Default categories (inserted on first login via trigger)
 -- ============================================================
-CREATE OR REPLACE FUNCTION insert_default_categories()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+CREATE OR REPLACE FUNCTION public.insert_default_categories()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-  INSERT INTO transaction_categories (user_id, name, icon, color, type, is_default) VALUES
+  INSERT INTO public.transaction_categories (user_id, name, icon, color, type, is_default) VALUES
     (NEW.id, 'Combustível',    'fuel',         '#FF9F0A', 'expense', true),
     (NEW.id, 'Manutenção',     'wrench',       '#FF453A', 'expense', true),
     (NEW.id, 'Documentação',   'file-text',    '#5E5CE6', 'expense', true),
@@ -102,9 +106,15 @@ BEGIN
     (NEW.id, 'Outros',         'more-horizontal','#8E8E93','expense', true),
     (NEW.id, 'Venda de Carro', 'car',          '#30D158', 'income',  true);
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE WARNING 'Could not insert default categories for user %: %', NEW.id, SQLERRM;
+    RETURN NEW;
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION insert_default_categories();
+  FOR EACH ROW EXECUTE FUNCTION public.insert_default_categories();
