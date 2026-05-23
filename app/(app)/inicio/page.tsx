@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { currentMonthISO } from '@/lib/formatters'
 import { getDashboardStats, getRecentTransactions } from '@/lib/actions/dashboard'
-import { getVehicles, getVehicleWithProfit } from '@/lib/actions/vehicles'
+import { getVehicles, getVehiclesWithProfitBatch } from '@/lib/actions/vehicles'
 import { HeroMetric } from '@/components/home/HeroMetric'
 import { MetricsGrid } from '@/components/home/MetricsGrid'
 import { ProfitBreakdownCard } from '@/components/home/ProfitBreakdownCard'
@@ -24,14 +24,12 @@ async function DashboardContent() {
     getVehicles(),
   ])
 
-  const vehicleProfit: VehicleWithProfit[] = await Promise.all(
-    vehicles.slice(0, 6).map(v => getVehicleWithProfit(v.id))
-  ).then(results => results.filter(Boolean) as VehicleWithProfit[])
+  const vehicleProfit = await getVehiclesWithProfitBatch(vehicles.slice(0, 6))
 
   const hasVehicleProfit = stats.consignment_profit !== 0 || stats.owned_profit !== 0
 
   return (
-    <div className="px-4 pt-12 space-y-4">
+    <div className="px-4 pt-12 space-y-4 animate-page-enter">
       <HeroMetric value={stats.gross_profit} label="Lucro do Mês" month={month} />
       <MetricsGrid
         grossSales={stats.gross_sales}

@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { requireAuth } from '@/lib/auth'
 import { getDashboardStats } from '@/lib/actions/dashboard'
-import { getVehicles, getVehicleWithProfit } from '@/lib/actions/vehicles'
+import { getVehicles, getVehiclesWithProfitBatch } from '@/lib/actions/vehicles'
 import { currentMonthISO, formatBRL, formatMonthYear } from '@/lib/formatters'
 import { Card } from '@/components/ui/Card'
 import { MonthlyTrend } from '@/components/home/MonthlyTrend'
@@ -26,17 +26,15 @@ export default async function RelatoriosPage({
     getVehicles('sold'),
   ])
 
-  const vehiclesWithProfit = await Promise.all(
-    vehicles.slice(0, 10).map(v => getVehicleWithProfit(v.id))
-  ).then(r => r.filter(Boolean))
+  const vehiclesWithProfit = await getVehiclesWithProfitBatch(vehicles.slice(0, 10))
 
-  const profitableVehicles = vehiclesWithProfit.filter(v => v!.profit !== null && v!.profit! > 0)
+  const profitableVehicles = vehiclesWithProfit.filter(v => v.profit !== null && v.profit! > 0)
   const avgMargin = profitableVehicles.length > 0
-    ? profitableVehicles.reduce((s, v) => s + (v!.profit_margin ?? 0), 0) / profitableVehicles.length
+    ? profitableVehicles.reduce((s, v) => s + (v.profit_margin ?? 0), 0) / profitableVehicles.length
     : 0
 
   return (
-    <div className="px-4 pt-12">
+    <div className="px-4 pt-12 animate-page-enter">
       <div className="mb-5">
         <h1 className="text-[28px] font-bold text-ios-primary">Relatórios</h1>
         <p className="text-[14px] text-ios-secondary capitalize">{formatMonthYear(month)}</p>
@@ -131,27 +129,27 @@ export default async function RelatoriosPage({
           </p>
           <div className="divide-y divide-ios-border/50">
             {vehiclesWithProfit.map(v => (
-              <div key={v!.id} className="flex items-center gap-3 px-4 py-3">
+              <div key={v.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-ios-primary truncate">
-                    {v!.year} {v!.make} {v!.model}
+                    {v.year} {v.make} {v.model}
                   </p>
                   <p className="text-[11px] text-ios-tertiary">
-                    Custo: {formatBRL(v!.total_cost)}
+                    Custo: {formatBRL(v.total_cost)}
                   </p>
                 </div>
                 <div className="text-right">
-                  {v!.profit !== null ? (
+                  {v.profit !== null ? (
                     <>
                       <p className={cn(
                         'text-[14px] font-semibold tabular-nums',
-                        v!.profit >= 0 ? 'text-profit' : 'text-expense'
+                        v.profit >= 0 ? 'text-profit' : 'text-expense'
                       )}>
-                        {v!.profit >= 0 ? '+' : ''}{formatBRL(v!.profit)}
+                        {v.profit >= 0 ? '+' : ''}{formatBRL(v.profit)}
                       </p>
-                      {v!.profit_margin !== null && (
+                      {v.profit_margin !== null && (
                         <p className="text-[11px] text-ios-tertiary">
-                          {v!.profit_margin.toFixed(1)}%
+                          {v.profit_margin.toFixed(1)}%
                         </p>
                       )}
                     </>

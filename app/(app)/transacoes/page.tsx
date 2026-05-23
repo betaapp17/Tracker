@@ -38,7 +38,7 @@ export default async function TransacoesPage({
   const monthDisplay = monthOpt.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="px-4 pt-12">
+    <div className="px-4 pt-12 animate-page-enter">
       <div className="mb-5">
         <h1 className="text-[28px] font-bold text-ios-primary">Transações</h1>
         <p className="text-[14px] text-ios-secondary capitalize">{monthDisplay}</p>

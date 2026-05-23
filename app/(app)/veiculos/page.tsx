@@ -25,7 +25,7 @@ export default async function VeiculosPage() {
   const consignedStock = inStock.filter(v => v.inventory_type === 'consigned')
 
   return (
-    <div className="px-4 pt-12">
+    <div className="px-4 pt-12 animate-page-enter">
       <div className="mb-5">
         <h1 className="text-[28px] font-bold text-ios-primary">Estoque</h1>
         <p className="text-[14px] text-ios-secondary">

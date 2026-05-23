@@ -10,7 +10,7 @@ export default async function MaisPage() {
   const isDemo = 'isDemo' in user
 
   return (
-    <div className="px-4 pt-12">
+    <div className="px-4 pt-12 animate-page-enter">
       <h1 className="text-[28px] font-bold text-ios-primary mb-6">Mais</h1>
 
       {/* Profile */}

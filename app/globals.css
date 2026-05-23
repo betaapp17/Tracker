@@ -74,6 +74,15 @@ body {
   padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
 }
 
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-page-enter {
+  animation: page-enter 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
 @layer utilities {
   .text-profit { color: #30D158; }
   .text-expense { color: #FF453A; }

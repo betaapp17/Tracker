@@ -44,7 +44,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
   const inventoryColor = isConsigned ? 'text-amber-600 bg-amber-50' : 'text-blue-600 bg-blue-50'
 
   return (
-    <div className="px-4 pt-12">
+    <div className="px-4 pt-12 animate-page-enter">
       {/* Back */}
       <Link href="/veiculos" className="flex items-center gap-1 text-[14px] text-ios-secondary mb-5 pressable -ml-1">
         <ChevronLeft className="w-5 h-5" />

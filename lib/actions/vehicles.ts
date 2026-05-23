@@ -176,6 +176,52 @@ export async function getInventoryStats(): Promise<InventoryStats> {
   }
 }
 
+export async function getVehiclesWithProfitBatch(
+  vehicles: Awaited<ReturnType<typeof getVehicles>>
+): Promise<VehicleWithProfit[]> {
+  if (vehicles.length === 0) return []
+
+  const supabase = await createClient()
+  const user = await getCurrentUser()
+  if (!user) return []
+
+  const vehicleIds = vehicles.map(v => v.id)
+  const { data: txs } = await supabase
+    .from('transactions')
+    .select('*, category:transaction_categories(*)')
+    .eq('user_id', user.id)
+    .in('vehicle_id', vehicleIds)
+    .order('date', { ascending: false })
+
+  const allTxs = txs ?? []
+
+  return vehicles.map(vehicle => {
+    const transactions = allTxs.filter(t => t.vehicle_id === vehicle.id)
+    const sale = transactions.find(t => t.type === 'sale')
+    const sale_price = sale ? Number(sale.amount) : null
+    const linked_expenses = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((s, t) => s + Number(t.amount), 0)
+    const costBasis = vehicle.inventory_type === 'consigned'
+      ? Number(vehicle.owner_payout_amount ?? 0)
+      : Number(vehicle.purchase_price)
+    const total_cost = costBasis + linked_expenses
+    const profit = sale_price !== null ? sale_price - total_cost : null
+    const profit_margin =
+      sale_price && sale_price > 0 ? ((profit ?? 0) / sale_price) * 100 : null
+    return {
+      ...vehicle,
+      inventory_type: (vehicle.inventory_type ?? 'owned') as VehicleWithProfit['inventory_type'],
+      sale_price,
+      linked_expenses,
+      total_cost,
+      profit,
+      profit_margin,
+      transactions,
+    }
+  })
+}
+
 export async function updateVehicleStatus(id: string, status: VehicleStatus) {
   const supabase = await createClient()
   const user = await getCurrentUser()
