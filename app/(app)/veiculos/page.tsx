@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { requireAuth } from '@/lib/auth'
 import { getVehicles } from '@/lib/actions/vehicles'
 import { formatBRL, formatDate } from '@/lib/formatters'
 import { Car, ChevronRight, Package, CheckCircle } from 'lucide-react'
@@ -14,6 +15,7 @@ const statusConfig = {
 }
 
 export default async function VeiculosPage() {
+  await requireAuth()
   const vehicles = await getVehicles()
 
   const inStock = vehicles.filter(v => v.status === 'in_stock')

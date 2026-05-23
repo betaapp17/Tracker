@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { requireAuth } from '@/lib/auth'
 import { getDashboardStats } from '@/lib/actions/dashboard'
 import { getVehicles, getVehicleWithProfit } from '@/lib/actions/vehicles'
 import { currentMonthISO, formatBRL, formatMonthYear } from '@/lib/formatters'
@@ -16,6 +17,7 @@ export default async function RelatoriosPage({
 }: {
   searchParams: Promise<{ month?: string }>
 }) {
+  await requireAuth()
   const params = await searchParams
   const month = params.month ?? currentMonthISO()
 

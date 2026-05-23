@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth'
 import { LogoutButton } from '@/components/layout/LogoutButton'
 import { Card } from '@/components/ui/Card'
 import { ChevronRight, User, HelpCircle, Bell, Shield } from 'lucide-react'
@@ -6,8 +6,7 @@ import { ChevronRight, User, HelpCircle, Bell, Shield } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 export default async function MaisPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await requireAuth()
 
   return (
     <div className="px-4 pt-12">

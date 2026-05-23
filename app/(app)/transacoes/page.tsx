@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { requireAuth } from '@/lib/auth'
 import { getTransactions } from '@/lib/actions/transactions'
 import { TransactionItem } from '@/components/transactions/TransactionItem'
 import { currentMonthISO } from '@/lib/formatters'
@@ -17,6 +18,7 @@ export default async function TransacoesPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  await requireAuth()
   const params = await searchParams
   const month = params.month ?? currentMonthISO()
   const type = params.type as never

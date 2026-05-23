@@ -8,11 +8,13 @@ import { SpendingByCategory } from '@/components/home/SpendingByCategory'
 import { RecentTransactions } from '@/components/home/RecentTransactions'
 import { VehicleProfitCard } from '@/components/home/VehicleProfitCard'
 import { MonthlyTrend } from '@/components/home/MonthlyTrend'
+import { requireAuth } from '@/lib/auth'
 import type { VehicleWithProfit } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
 async function DashboardContent() {
+  await requireAuth()
   const month = currentMonthISO()
 
   const [stats, recentTxs, vehicles] = await Promise.all([

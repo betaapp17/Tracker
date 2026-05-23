@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { requireAuth } from '@/lib/auth'
 import { ChevronLeft, Car, TrendingUp } from 'lucide-react'
 import { getVehicleWithProfit } from '@/lib/actions/vehicles'
 import { formatBRL, formatDateFull } from '@/lib/formatters'
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic'
 const statusLabel = { in_stock: 'Em Estoque', sold: 'Vendido', archived: 'Arquivado' }
 
 export default async function VehicleDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAuth()
   const { id } = await params
   const vehicle = await getVehicleWithProfit(id)
   if (!vehicle) notFound()
