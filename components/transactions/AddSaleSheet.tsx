@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { addSale } from '@/lib/actions/transactions'
 import { getVehicles } from '@/lib/actions/vehicles'
 import { parseCurrencyInput } from '@/lib/currency'
-import { todayISO } from '@/lib/formatters'
+import { todayISO, formatBRL } from '@/lib/formatters'
 import { uploadReceipt } from '@/lib/receipts'
 import type { Vehicle } from '@/lib/types'
 
@@ -31,6 +31,9 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
   }, [open])
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const selectedVehicle = vehicles.find(v => v.id === form.vehicle_id) ?? null
+  const isConsigned = selectedVehicle?.inventory_type === 'consigned'
 
   const handleSubmit = () => {
     const amount = parseCurrencyInput(form.amount)
@@ -59,7 +62,9 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
         <Select label="Veículo" value={form.vehicle_id} onChange={e => set('vehicle_id', e.target.value)}>
           <option value="">Selecionar veículo</option>
           {vehicles.map(v => (
-            <option key={v.id} value={v.id}>{v.year} {v.make} {v.model}</option>
+            <option key={v.id} value={v.id}>
+              {v.year} {v.make} {v.model}{v.inventory_type === 'consigned' ? ' · Consignado' : ''}
+            </option>
           ))}
         </Select>
 
@@ -67,6 +72,15 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
           <p className="text-[13px] text-ios-secondary text-center py-2">
             Nenhum veículo em estoque
           </p>
+        )}
+
+        {isConsigned && selectedVehicle?.owner_payout_amount != null && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <p className="text-[12px] text-amber-700 font-medium">Veículo Consignado</p>
+            <p className="text-[12px] text-amber-600 mt-0.5">
+              Repasse ao dono: <span className="font-semibold">{formatBRL(selectedVehicle.owner_payout_amount)}</span>
+            </p>
+          </div>
         )}
 
         <CurrencyInput

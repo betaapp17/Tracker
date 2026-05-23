@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import type { VehicleStatus, VehicleWithProfit } from '@/lib/types'
+import type { InventoryType, VehicleStatus, VehicleWithProfit, InventoryStats } from '@/lib/types'
 
 export interface UpdateVehicleInput {
   id: string
@@ -11,7 +11,10 @@ export interface UpdateVehicleInput {
   model: string
   year: number
   plate: string
+  inventory_type: InventoryType
   purchase_price: number
+  owner_payout_amount: number | null
+  estimated_sale_price: number | null
   purchase_date: string
   status: VehicleStatus
   notes: string
@@ -65,20 +68,94 @@ export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfi
     .filter(t => t.type === 'expense')
     .reduce((s, t) => s + Number(t.amount), 0)
 
-  const total_cost = Number(vehicle.purchase_price) + linked_expenses
+  // Cost basis depends on inventory type
+  const costBasis = vehicle.inventory_type === 'consigned'
+    ? Number(vehicle.owner_payout_amount ?? 0)
+    : Number(vehicle.purchase_price)
 
+  const total_cost = costBasis + linked_expenses
   const profit = sale_price !== null ? sale_price - total_cost : null
   const profit_margin =
     sale_price && sale_price > 0 ? ((profit ?? 0) / sale_price) * 100 : null
 
   return {
     ...vehicle,
+    inventory_type: vehicle.inventory_type ?? 'owned',
     sale_price,
     linked_expenses,
     total_cost,
     profit,
     profit_margin,
     transactions,
+  }
+}
+
+export async function getInventoryStats(): Promise<InventoryStats> {
+  const supabase = await createClient()
+  const user = await getCurrentUser()
+
+  const empty: InventoryStats = {
+    cars_in_stock: 0, owned_count: 0, consigned_count: 0,
+    total_invested: 0, owned_value: 0, consigned_value: 0, potential_profit: 0,
+  }
+  if (!user) return empty
+
+  const { data: vehicles } = await supabase
+    .from('vehicles')
+    .select('id, inventory_type, purchase_price, owner_payout_amount, estimated_sale_price')
+    .eq('user_id', user.id)
+    .eq('status', 'in_stock')
+
+  if (!vehicles || vehicles.length === 0) return empty
+
+  const vehicleIds = vehicles.map(v => v.id)
+
+  const { data: expenses } = await supabase
+    .from('transactions')
+    .select('vehicle_id, amount')
+    .eq('user_id', user.id)
+    .eq('type', 'expense')
+    .in('vehicle_id', vehicleIds)
+
+  const expenseMap = new Map<string, number>()
+  for (const exp of expenses ?? []) {
+    if (!exp.vehicle_id) continue
+    expenseMap.set(exp.vehicle_id, (expenseMap.get(exp.vehicle_id) ?? 0) + Number(exp.amount))
+  }
+
+  const owned = vehicles.filter(v => (v.inventory_type ?? 'owned') === 'owned')
+  const consigned = vehicles.filter(v => v.inventory_type === 'consigned')
+
+  let owned_value = 0
+  let potential_profit = 0
+
+  for (const v of owned) {
+    const linked = expenseMap.get(v.id) ?? 0
+    const cost = Number(v.purchase_price) + linked
+    owned_value += cost
+    if (v.estimated_sale_price) {
+      potential_profit += Number(v.estimated_sale_price) - cost
+    }
+  }
+
+  let consigned_value = 0
+  for (const v of consigned) {
+    const linked = expenseMap.get(v.id) ?? 0
+    const payout = Number(v.owner_payout_amount ?? 0)
+    consigned_value += payout
+    if (v.estimated_sale_price) {
+      potential_profit += Number(v.estimated_sale_price) - payout - linked
+    }
+  }
+
+  return {
+    cars_in_stock: vehicles.length,
+    owned_count: owned.length,
+    consigned_count: consigned.length,
+    total_invested: owned_value,
+    owned_value,
+    consigned_value,
+    potential_profit,
   }
 }
 
@@ -108,7 +185,10 @@ export async function updateVehicle(input: UpdateVehicleInput) {
       model: input.model,
       year: input.year,
       plate: input.plate || null,
+      inventory_type: input.inventory_type,
       purchase_price: input.purchase_price,
+      owner_payout_amount: input.owner_payout_amount,
+      estimated_sale_price: input.estimated_sale_price,
       purchase_date: input.purchase_date,
       status: input.status,
       notes: input.notes || null,
@@ -120,19 +200,22 @@ export async function updateVehicle(input: UpdateVehicleInput) {
 
   if (error) throw new Error(error.message)
 
-  await supabase
-    .from('transactions')
-    .update({
-      amount: input.purchase_price,
-      date: input.purchase_date,
-      description: `Compra: ${input.year} ${input.make} ${input.model}`,
-      notes: input.notes || null,
-      receipt_url: input.receipt_url,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('vehicle_id', input.id)
-    .eq('type', 'vehicle_purchase')
-    .eq('user_id', user.id)
+  // Only sync the vehicle_purchase transaction for owned vehicles
+  if (input.inventory_type === 'owned') {
+    await supabase
+      .from('transactions')
+      .update({
+        amount: input.purchase_price,
+        date: input.purchase_date,
+        description: `Compra: ${input.year} ${input.make} ${input.model}`,
+        notes: input.notes || null,
+        receipt_url: input.receipt_url,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('vehicle_id', input.id)
+      .eq('type', 'vehicle_purchase')
+      .eq('user_id', user.id)
+  }
 
   revalidatePath('/', 'layout')
 }

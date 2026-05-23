@@ -4,12 +4,12 @@ import { Card } from '@/components/ui/Card'
 
 interface Props {
   grossSales: number
-  totalExpenses: number
+  operatingExpenses: number
   carsSold: number
   avgProfitPerCar: number
 }
 
-export function MetricsGrid({ grossSales, totalExpenses, carsSold, avgProfitPerCar }: Props) {
+export function MetricsGrid({ grossSales, operatingExpenses, carsSold, avgProfitPerCar }: Props) {
   const metrics = [
     {
       label: 'Vendas Brutas',
@@ -20,9 +20,9 @@ export function MetricsGrid({ grossSales, totalExpenses, carsSold, avgProfitPerC
       bg: 'bg-green-50',
     },
     {
-      label: 'Total de Gastos',
-      value: formatBRLCompact(totalExpenses),
-      full: formatBRL(totalExpenses),
+      label: 'Despesas Operacionais',
+      value: formatBRLCompact(operatingExpenses),
+      full: formatBRL(operatingExpenses),
       icon: TrendingDown,
       color: 'text-expense',
       bg: 'bg-red-50',
@@ -47,7 +47,7 @@ export function MetricsGrid({ grossSales, totalExpenses, carsSold, avgProfitPerC
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      {metrics.map(({ label, value, full, icon: Icon, color, bg }) => (
+      {metrics.map(({ label, value, icon: Icon, color, bg }) => (
         <Card key={label} className="space-y-3">
           <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center`}>
             <Icon className={`w-4.5 h-4.5 ${color}`} />

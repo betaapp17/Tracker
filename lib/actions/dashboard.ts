@@ -13,35 +13,72 @@ export async function getDashboardStats(month: string): Promise<DashboardStats> 
   const endDate = new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth() + 1, 0)
     .toISOString().slice(0, 10)
 
-  // All transactions for the month
-  const { data: txs } = await supabase
+  // Operating expenses only — vehicle purchases are inventory assets, not expenses
+  const { data: expenseTxs } = await supabase
     .from('transactions')
     .select('*, category:transaction_categories(*)')
     .eq('user_id', user.id)
+    .eq('type', 'expense')
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: false })
 
-  const transactions = txs ?? []
+  // Sales this month with vehicle data for profit calculation
+  const { data: saleTxs } = await supabase
+    .from('transactions')
+    .select('amount, vehicle_id, vehicle:vehicles(id, inventory_type, purchase_price, owner_payout_amount)')
+    .eq('user_id', user.id)
+    .eq('type', 'sale')
+    .gte('date', startDate)
+    .lte('date', endDate)
 
-  const gross_sales = transactions
-    .filter(t => t.type === 'sale')
-    .reduce((s, t) => s + Number(t.amount), 0)
+  const expenses = expenseTxs ?? []
+  const sales = saleTxs ?? []
 
-  const total_expenses = transactions
-    .filter(t => t.type === 'expense' || t.type === 'vehicle_purchase')
-    .reduce((s, t) => s + Number(t.amount), 0)
+  const gross_sales = sales.reduce((s, t) => s + Number(t.amount), 0)
+  const operating_expenses = expenses.reduce((s, t) => s + Number(t.amount), 0)
+  const gross_profit = gross_sales - operating_expenses
+  const cars_sold = sales.length
 
-  const net_profit = gross_sales - total_expenses
+  // Get all expenses ever linked to vehicles sold this month (for per-vehicle profit)
+  const soldVehicleIds = sales.map(t => t.vehicle_id).filter(Boolean) as string[]
+  const vehicleExpenseMap = new Map<string, number>()
 
-  const cars_sold = transactions.filter(t => t.type === 'sale').length
+  if (soldVehicleIds.length > 0) {
+    const { data: linkedExps } = await supabase
+      .from('transactions')
+      .select('vehicle_id, amount')
+      .eq('user_id', user.id)
+      .eq('type', 'expense')
+      .in('vehicle_id', soldVehicleIds)
 
-  const avg_profit_per_car = cars_sold > 0 ? net_profit / cars_sold : 0
+    for (const exp of linkedExps ?? []) {
+      if (!exp.vehicle_id) continue
+      vehicleExpenseMap.set(exp.vehicle_id, (vehicleExpenseMap.get(exp.vehicle_id) ?? 0) + Number(exp.amount))
+    }
+  }
 
-  // Expenses by category
+  let consignment_profit = 0
+  let owned_profit = 0
+
+  for (const sale of sales) {
+    const vehicle = Array.isArray(sale.vehicle) ? sale.vehicle[0] : sale.vehicle
+    if (!vehicle) continue
+    const saleAmount = Number(sale.amount)
+    const linkedExp = sale.vehicle_id ? (vehicleExpenseMap.get(sale.vehicle_id) ?? 0) : 0
+
+    if (vehicle.inventory_type === 'consigned') {
+      consignment_profit += saleAmount - Number(vehicle.owner_payout_amount ?? 0) - linkedExp
+    } else {
+      owned_profit += saleAmount - Number(vehicle.purchase_price) - linkedExp
+    }
+  }
+
+  const avg_profit_per_car = cars_sold > 0 ? (owned_profit + consignment_profit) / cars_sold : 0
+
+  // Expenses by category (operating only)
   const catMap = new Map<string, { name: string; amount: number; color: string; icon: string }>()
-  for (const t of transactions) {
-    if (t.type !== 'expense') continue
+  for (const t of expenses) {
     const key = t.category?.name ?? 'Outros'
     const existing = catMap.get(key)
     if (existing) {
@@ -55,19 +92,18 @@ export async function getDashboardStats(month: string): Promise<DashboardStats> 
       })
     }
   }
-  const expenses_by_category = Array.from(catMap.values())
-    .sort((a, b) => b.amount - a.amount)
 
-  // Monthly trend — last 6 months
   const monthly_trend = await getMonthlyTrend(supabase, user.id, month)
 
   return {
-    net_profit,
     gross_sales,
-    total_expenses,
+    operating_expenses,
     cars_sold,
+    gross_profit,
+    consignment_profit,
+    owned_profit,
     avg_profit_per_car,
-    expenses_by_category,
+    expenses_by_category: Array.from(catMap.values()).sort((a, b) => b.amount - a.amount),
     monthly_trend,
   }
 }
@@ -95,9 +131,8 @@ async function getMonthlyTrend(
 
     const list = txs ?? []
     const sales = list.filter(t => t.type === 'sale').reduce((s, t) => s + Number(t.amount), 0)
-    const expenses = list
-      .filter(t => t.type === 'expense' || t.type === 'vehicle_purchase')
-      .reduce((s, t) => s + Number(t.amount), 0)
+    // Only operating expenses in trend — vehicle_purchase is inventory, not expense
+    const expenses = list.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
 
     months.push({ month: m, sales, expenses, profit: sales - expenses })
   }
@@ -114,6 +149,7 @@ export async function getRecentTransactions(limit = 10) {
     .from('transactions')
     .select('*, category:transaction_categories(*), vehicle:vehicles(make, model, year)')
     .eq('user_id', user.id)
+    .neq('type', 'vehicle_purchase')
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(limit)

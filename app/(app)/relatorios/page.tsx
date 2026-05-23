@@ -60,8 +60,8 @@ export default async function RelatoriosPage({
             bg: 'bg-green-50',
           },
           {
-            label: 'Total de Gastos',
-            value: formatBRL(stats.total_expenses),
+            label: 'Despesas Operacionais',
+            value: formatBRL(stats.operating_expenses),
             icon: TrendingDown,
             color: 'text-expense',
             bg: 'bg-red-50',
@@ -96,22 +96,22 @@ export default async function RelatoriosPage({
       {/* Net profit banner */}
       <div className={cn(
         'rounded-2xl p-4 mb-4 flex items-center justify-between',
-        stats.net_profit >= 0 ? 'bg-green-50' : 'bg-red-50'
+        stats.gross_profit >= 0 ? 'bg-green-50' : 'bg-red-50'
       )}>
         <div>
-          <p className="text-[12px] font-medium text-ios-secondary uppercase tracking-wider">Lucro Líquido</p>
+          <p className="text-[12px] font-medium text-ios-secondary uppercase tracking-wider">Lucro do Mês</p>
           <p className={cn(
             'text-[28px] font-bold tabular-nums mt-1',
-            stats.net_profit >= 0 ? 'text-profit' : 'text-expense'
+            stats.gross_profit >= 0 ? 'text-profit' : 'text-expense'
           )}>
-            {stats.net_profit >= 0 ? '+' : ''}{formatBRL(stats.net_profit)}
+            {stats.gross_profit >= 0 ? '+' : ''}{formatBRL(stats.gross_profit)}
           </p>
         </div>
         <div className={cn(
           'text-[28px]',
-          stats.net_profit >= 0 ? 'text-profit' : 'text-expense'
+          stats.gross_profit >= 0 ? 'text-profit' : 'text-expense'
         )}>
-          {stats.net_profit >= 0 ? '🟢' : '🔴'}
+          {stats.gross_profit >= 0 ? '🟢' : '🔴'}
         </div>
       </div>
 
@@ -119,7 +119,7 @@ export default async function RelatoriosPage({
       <div className="mb-4">
         <SpendingByCategory
           categories={stats.expenses_by_category}
-          total={stats.total_expenses}
+          total={stats.operating_expenses}
         />
       </div>
 

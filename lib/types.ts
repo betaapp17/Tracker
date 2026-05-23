@@ -1,3 +1,4 @@
+export type InventoryType = 'owned' | 'consigned'
 export type VehicleStatus = 'in_stock' | 'sold' | 'archived'
 export type TransactionType = 'expense' | 'sale' | 'vehicle_purchase' | 'adjustment'
 export type PaymentMethod = 'cash' | 'pix' | 'card' | 'transfer' | 'financing'
@@ -20,7 +21,11 @@ export interface Vehicle {
   model: string
   year: number
   plate: string | null
+  inventory_type: InventoryType
   purchase_price: number
+  owner_payout_amount: number | null
+  dealership_markup: number | null
+  estimated_sale_price: number | null
   purchase_date: string
   status: VehicleStatus
   notes: string | null
@@ -58,11 +63,23 @@ export interface VehicleWithProfit extends Vehicle {
 }
 
 export interface DashboardStats {
-  net_profit: number
   gross_sales: number
-  total_expenses: number
+  operating_expenses: number
   cars_sold: number
+  gross_profit: number
+  consignment_profit: number
+  owned_profit: number
   avg_profit_per_car: number
   expenses_by_category: Array<{ name: string; amount: number; color: string; icon: string }>
   monthly_trend: Array<{ month: string; sales: number; expenses: number; profit: number }>
+}
+
+export interface InventoryStats {
+  cars_in_stock: number
+  owned_count: number
+  consigned_count: number
+  total_invested: number
+  owned_value: number
+  consigned_value: number
+  potential_profit: number
 }

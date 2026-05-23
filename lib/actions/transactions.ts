@@ -36,6 +36,20 @@ export interface AddVehiclePurchaseInput {
   receipt_url: string | null
 }
 
+export interface AddVehicleInput {
+  inventory_type: 'owned' | 'consigned'
+  make: string
+  model: string
+  year: number
+  plate: string
+  purchase_price: number
+  owner_payout_amount: number | null
+  estimated_sale_price: number | null
+  purchase_date: string
+  notes: string
+  receipt_url: string | null
+}
+
 export interface UpdateTransactionInput {
   id: string
   amount: number
@@ -95,6 +109,50 @@ export async function addSale(input: AddSaleInput) {
     .update({ status: 'sold', updated_at: new Date().toISOString() })
     .eq('id', input.vehicle_id)
     .eq('user_id', user.id)
+
+  revalidatePath('/', 'layout')
+}
+
+export async function addVehicle(input: AddVehicleInput) {
+  const supabase = await createClient()
+  const user = await getCurrentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { data: vehicle, error: vErr } = await supabase
+    .from('vehicles')
+    .insert({
+      user_id: user.id,
+      make: input.make,
+      model: input.model,
+      year: input.year,
+      plate: input.plate || null,
+      inventory_type: input.inventory_type,
+      purchase_price: input.purchase_price,
+      owner_payout_amount: input.owner_payout_amount,
+      estimated_sale_price: input.estimated_sale_price,
+      purchase_date: input.purchase_date,
+      notes: input.notes || null,
+      receipt_url: input.receipt_url,
+      status: 'in_stock',
+    })
+    .select()
+    .single()
+
+  if (vErr) throw new Error(vErr.message)
+
+  // Only record a capital transaction for owned vehicles — consigned vehicles are not dealership assets
+  if (input.inventory_type === 'owned' && input.purchase_price > 0) {
+    await supabase.from('transactions').insert({
+      user_id: user.id,
+      type: 'vehicle_purchase' as TransactionType,
+      amount: input.purchase_price,
+      vehicle_id: vehicle.id,
+      date: input.purchase_date,
+      description: `Compra: ${input.year} ${input.make} ${input.model}`,
+      notes: input.notes || null,
+      receipt_url: input.receipt_url,
+    })
+  }
 
   revalidatePath('/', 'layout')
 }
