@@ -35,16 +35,12 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
   const hasOwnerPrep = vehicle.owner_prep_expenses > 0
   const hasCommission = vehicle.commission > 0
 
+  // total_cost already excludes owner_prep (those are reimbursed by car owner)
   const rows = [
     { label: costLabel, value: formatBRL(costValue), color: 'text-expense' },
-    ...(hasOwnerPrep
-      ? [{ label: 'Reembolso ao Dono (prep)', value: formatBRL(vehicle.owner_prep_expenses), color: 'text-expense' }]
-      : []),
     ...(dealerExpenses > 0
       ? [{ label: 'Despesas da Loja', value: formatBRL(dealerExpenses), color: 'text-expense' }]
-      : vehicle.linked_expenses > 0 && !hasOwnerPrep
-        ? [{ label: 'Despesas Vinculadas', value: formatBRL(vehicle.linked_expenses), color: 'text-expense' }]
-        : []),
+      : []),
     { label: 'Custo Total', value: formatBRL(vehicle.total_cost), color: 'text-expense', bold: true },
     ...(hasCommission
       ? [{ label: 'Comissão (5%)', value: `+${formatBRL(vehicle.commission)}`, color: 'text-profit' }]
@@ -168,6 +164,18 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
               <span className={cn('text-[16px] font-bold tabular-nums', profitColor)}>
                 {vehicle.profit! >= 0 ? '+' : ''}{formatBRL(vehicle.profit!)}
               </span>
+            </div>
+          )}
+
+          {hasOwnerPrep && (
+            <div className="mt-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-medium text-amber-700">Fronteado pelo dono (reembolso)</span>
+                <span className="text-[13px] font-semibold text-amber-700">{formatBRL(vehicle.owner_prep_expenses)}</span>
+              </div>
+              <p className="text-[11px] text-amber-600 mt-1">
+                Pago pelo dono e reembolsado na venda — não conta no lucro da loja.
+              </p>
             </div>
           )}
         </div>

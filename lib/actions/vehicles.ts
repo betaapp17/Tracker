@@ -71,6 +71,8 @@ export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfi
   const owner_prep_expenses = expenseTxs
     .filter(t => t.is_owner_prep)
     .reduce((s, t) => s + Number(t.amount), 0)
+  // Only dealer's own costs reduce profit; owner prep is reimbursed by the car owner
+  const dealer_expenses = linked_expenses - owner_prep_expenses
 
   const isConsigned = vehicle.inventory_type === 'consigned'
   const costBasis = isConsigned
@@ -80,7 +82,7 @@ export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfi
     ? Number(vehicle.owner_payout_amount ?? 0) * Number(vehicle.commission_rate ?? 0)
     : 0
 
-  const total_cost = costBasis + linked_expenses
+  const total_cost = costBasis + dealer_expenses
   const profit = sale_price !== null ? sale_price - total_cost + commission : null
   const profit_margin =
     sale_price && sale_price > 0 ? ((profit ?? 0) / sale_price) * 100 : null
@@ -213,6 +215,7 @@ export async function getVehiclesWithProfitBatch(
     const owner_prep_expenses = expenseTxs
       .filter(t => t.is_owner_prep)
       .reduce((s, t) => s + Number(t.amount), 0)
+    const dealer_expenses = linked_expenses - owner_prep_expenses
     const isConsigned = vehicle.inventory_type === 'consigned'
     const costBasis = isConsigned
       ? Number(vehicle.owner_payout_amount ?? 0)
@@ -220,7 +223,7 @@ export async function getVehiclesWithProfitBatch(
     const commission = isConsigned
       ? Number(vehicle.owner_payout_amount ?? 0) * Number(vehicle.commission_rate ?? 0)
       : 0
-    const total_cost = costBasis + linked_expenses
+    const total_cost = costBasis + dealer_expenses
     const profit = sale_price !== null ? sale_price - total_cost + commission : null
     const profit_margin =
       sale_price && sale_price > 0 ? ((profit ?? 0) / sale_price) * 100 : null

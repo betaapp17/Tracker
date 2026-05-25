@@ -13,12 +13,14 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
   // Employees see no financial stats
   if (!can(user.role, 'view_financials')) return null
 
-  // Operating expenses only — vehicle purchases are inventory assets, not expenses
+  // Operating expenses only — exclude vehicle purchases (inventory assets) and owner-prep
+  // expenses (fronted by dealer, reimbursed by car owner — net zero to the business)
   const { data: expenseTxs } = await supabase
     .from('transactions')
     .select('*, category:transaction_categories(*)')
     .eq('user_id', user.id)
     .eq('type', 'expense')
+    .eq('is_owner_prep', false)
     .gte('date', from)
     .lte('date', to)
     .order('date', { ascending: false })
@@ -49,6 +51,7 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
       .select('vehicle_id, amount')
       .eq('user_id', user.id)
       .eq('type', 'expense')
+      .eq('is_owner_prep', false)
       .in('vehicle_id', soldVehicleIds)
 
     for (const exp of linkedExps ?? []) {

@@ -61,6 +61,7 @@ export interface UpdateTransactionInput {
   date: string
   payment_method: PaymentMethod | null
   vehicle_id: string | null
+  is_owner_prep: boolean
   notes: string
   receipt_url: string | null
 }
@@ -223,6 +224,7 @@ export async function updateTransaction(input: UpdateTransactionInput) {
       date: input.date,
       payment_method: input.payment_method,
       vehicle_id: input.vehicle_id,
+      is_owner_prep: input.is_owner_prep,
       notes: input.notes || null,
       receipt_url: input.receipt_url,
       updated_at: new Date().toISOString(),

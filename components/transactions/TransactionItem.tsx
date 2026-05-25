@@ -39,7 +39,14 @@ export function TransactionItem({ tx, showCategory = true }: Props) {
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="text-[14px] font-medium text-ios-primary truncate">{displayName}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[14px] font-medium text-ios-primary truncate">{displayName}</p>
+            {tx.is_owner_prep && (
+              <span className="flex-shrink-0 text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md">
+                Reembolsado
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             {showCategory && tx.category && (
               <span className="text-[11px] text-ios-tertiary">{tx.category.name} · </span>

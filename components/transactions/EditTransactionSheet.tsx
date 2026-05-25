@@ -12,6 +12,7 @@ import { getCategories, updateTransaction, deleteTransaction } from '@/lib/actio
 import { getVehicles } from '@/lib/actions/vehicles'
 import { currencyInputFromNumber, parseCurrencyInput } from '@/lib/currency'
 import { uploadReceipt } from '@/lib/receipts'
+import { cn } from '@/lib/utils'
 import type { PaymentMethod, Transaction, TransactionCategory, Vehicle } from '@/lib/types'
 
 interface EditTransactionSheetProps {
@@ -29,6 +30,7 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptUrl, setReceiptUrl] = useState(transaction.receipt_url)
+  const [isOwnerPrep, setIsOwnerPrep] = useState(transaction.is_owner_prep ?? false)
   const [form, setForm] = useState({
     amount: currencyInputFromNumber(transaction.amount),
     category_id: transaction.category_id ?? '',
@@ -44,6 +46,7 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
 
     setReceiptFile(null)
     setReceiptUrl(transaction.receipt_url)
+    setIsOwnerPrep(transaction.is_owner_prep ?? false)
     setForm({
       amount: currencyInputFromNumber(transaction.amount),
       category_id: transaction.category_id ?? '',
@@ -62,6 +65,15 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
     setForm(current => ({ ...current, [key]: value }))
   }
 
+  const handleVehicleChange = (id: string) => {
+    set('vehicle_id', id)
+    setIsOwnerPrep(false)
+  }
+
+  const selectedVehicle = vehicles.find(v => v.id === form.vehicle_id) ?? null
+  const isConsignedVehicle = selectedVehicle?.inventory_type === 'consigned'
+  const showOwnerPrepToggle = transaction.type === 'expense' && isConsignedVehicle
+
   const handleSave = () => {
     const amount = parseCurrencyInput(form.amount)
     if (amount <= 0) return
@@ -78,6 +90,7 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
           date: form.date,
           payment_method: form.payment_method as PaymentMethod,
           vehicle_id: form.vehicle_id || null,
+          is_owner_prep: showOwnerPrepToggle && isOwnerPrep,
           notes: form.notes,
           receipt_url: uploadedReceiptUrl,
         })
@@ -131,14 +144,39 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
         )}
 
         {showVehicle && (
-          <Select label="Veículo (opcional)" value={form.vehicle_id} onChange={e => set('vehicle_id', e.target.value)}>
+          <Select label="Veículo (opcional)" value={form.vehicle_id} onChange={e => handleVehicleChange(e.target.value)}>
             <option value="">Sem vínculo</option>
             {vehicles.map(vehicle => (
               <option key={vehicle.id} value={vehicle.id}>
-                {vehicle.year} {vehicle.make} {vehicle.model}
+                {vehicle.year} {vehicle.make} {vehicle.model}{vehicle.inventory_type === 'consigned' ? ' · Consignado' : ''}
               </option>
             ))}
           </Select>
+        )}
+
+        {showOwnerPrepToggle && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <button
+              onClick={() => setIsOwnerPrep(v => !v)}
+              className="w-full flex items-center justify-between"
+            >
+              <div>
+                <p className="text-[13px] text-amber-700 font-medium text-left">Pago pelo dono (reembolso)</p>
+                <p className="text-[11px] text-amber-600 mt-0.5 text-left">
+                  O dono do carro pagou essa despesa e será reembolsado. Não reduz o lucro da loja.
+                </p>
+              </div>
+              <div className={cn(
+                'flex-shrink-0 ml-3 w-11 h-6 rounded-full transition-colors relative',
+                isOwnerPrep ? 'bg-amber-500' : 'bg-amber-200'
+              )}>
+                <div className={cn(
+                  'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                  isOwnerPrep ? 'translate-x-5' : 'translate-x-0.5'
+                )} />
+              </div>
+            </button>
+          </div>
         )}
 
         <Input
