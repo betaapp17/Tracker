@@ -9,9 +9,12 @@ export function InactivityGuard() {
   const router = useRouter()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastActivityRef = useRef<number>(Date.now())
+  const loggedOutRef = useRef(false)
 
   useEffect(() => {
     const logout = async () => {
+      if (loggedOutRef.current) return
+      loggedOutRef.current = true
       await fetch('/api/auth/logout', { method: 'POST' })
       router.push('/login')
     }
