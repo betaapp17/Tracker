@@ -1,13 +1,14 @@
+import Link from 'next/link'
 import { requireAuth } from '@/lib/auth'
 import { LogoutButton } from '@/components/layout/LogoutButton'
 import { Card } from '@/components/ui/Card'
-import { ChevronRight, User, HelpCircle, Bell, Shield } from 'lucide-react'
+import { ChevronRight, User, HelpCircle, Bell, Shield, Users } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
 export default async function MaisPage() {
   const user = await requireAuth()
-  const isDemo = 'isDemo' in user
+  const isOwner = user.role === 'owner'
 
   return (
     <div className="px-4 pt-12 animate-page-enter">
@@ -19,16 +20,32 @@ export default async function MaisPage() {
           <User className="w-7 h-7 text-taquinho" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[16px] font-semibold text-ios-primary">
-            {isDemo ? 'Modo Demonstração' : 'Minha Conta'}
-          </p>
-          <p className="text-[13px] text-ios-secondary truncate">
-            {isDemo ? 'Login temporariamente desativado' : user?.email}
+          <p className="text-[16px] font-semibold text-ios-primary">{user.name}</p>
+          <p className="text-[13px] text-ios-secondary">
+            {isOwner ? 'Proprietário · Acesso total' : 'Funcionário'}
           </p>
         </div>
       </Card>
 
-      {/* Settings sections */}
+      {/* Owner-only section */}
+      {isOwner && (
+        <div className="space-y-3 mb-6">
+          <p className="text-[11px] font-semibold text-ios-secondary uppercase tracking-wider px-1">
+            Administração
+          </p>
+          <Card padding="none">
+            <Link href="/admin" className="flex items-center gap-3 w-full px-4 py-3.5 pressable">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <Users className="w-4 h-4 text-blue-600" />
+              </div>
+              <span className="flex-1 text-left text-[14px] text-ios-primary">Gerenciar Equipe</span>
+              <ChevronRight className="w-4 h-4 text-ios-tertiary" />
+            </Link>
+          </Card>
+        </div>
+      )}
+
+      {/* General settings */}
       <div className="space-y-3 mb-6">
         <p className="text-[11px] font-semibold text-ios-secondary uppercase tracking-wider px-1">
           Configurações
@@ -65,7 +82,7 @@ export default async function MaisPage() {
         <p className="text-[12px] text-ios-secondary mt-1">Versão 1.0.0</p>
       </Card>
 
-      {!isDemo && <LogoutButton />}
+      <LogoutButton />
     </div>
   )
 }

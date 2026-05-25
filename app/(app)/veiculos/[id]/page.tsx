@@ -14,11 +14,12 @@ export const dynamic = 'force-dynamic'
 const statusLabel = { in_stock: 'Em Estoque', sold: 'Vendido', archived: 'Arquivado' }
 
 export default async function VehicleDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAuth()
+  const user = await requireAuth()
   const { id } = await params
   const vehicle = await getVehicleWithProfit(id)
   if (!vehicle) notFound()
 
+  const canViewProfit = user.role === 'owner'
   const hasSale = vehicle.sale_price !== null
   const isConsigned = vehicle.inventory_type === 'consigned'
   const days = vehicle.status === 'in_stock' ? daysInStock(vehicle.purchase_date) : null
@@ -96,28 +97,31 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
           )}
         </div>
 
-        <div>
-          <p className="text-[12px] text-white/50 mb-1">
-            {hasSale ? 'Lucro Final' : 'Custo até agora'}
-          </p>
-          <p className={cn('text-[36px] font-bold tabular-nums', hasSale ? profitColor : 'text-taquinho')}>
-            {hasSale
-              ? `${vehicle.profit! >= 0 ? '+' : ''}${formatBRL(vehicle.profit!)}`
-              : formatBRL(vehicle.total_cost)
-            }
-          </p>
-          {hasSale && vehicle.profit_margin !== null && (
-            <div className="flex items-center gap-1.5 mt-1">
-              <TrendingUp className="w-3.5 h-3.5 text-white/40" />
-              <span className="text-[12px] text-white/50">
-                {vehicle.profit_margin.toFixed(1)}% de margem
-              </span>
-            </div>
-          )}
-        </div>
+        {canViewProfit && (
+          <div>
+            <p className="text-[12px] text-white/50 mb-1">
+              {hasSale ? 'Lucro Final' : 'Custo até agora'}
+            </p>
+            <p className={cn('text-[36px] font-bold tabular-nums', hasSale ? profitColor : 'text-taquinho')}>
+              {hasSale
+                ? `${vehicle.profit! >= 0 ? '+' : ''}${formatBRL(vehicle.profit!)}`
+                : formatBRL(vehicle.total_cost)
+              }
+            </p>
+            {hasSale && vehicle.profit_margin !== null && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <TrendingUp className="w-3.5 h-3.5 text-white/40" />
+                <span className="text-[12px] text-white/50">
+                  {vehicle.profit_margin.toFixed(1)}% de margem
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Profit breakdown */}
+      {/* Profit breakdown — owner only */}
+      {canViewProfit && (
       <Card className="mb-4">
         <p className="text-[14px] font-semibold text-ios-primary mb-4">Detalhamento</p>
 
@@ -153,6 +157,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
           )}
         </div>
       </Card>
+      )}
 
       {/* Info */}
       <Card className="mb-4">

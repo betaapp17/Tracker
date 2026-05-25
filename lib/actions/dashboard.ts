@@ -1,13 +1,17 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth'
+import { can } from '@/lib/permissions'
 import type { DashboardStats } from '@/lib/types'
 
-export async function getDashboardStats(from: string, to: string): Promise<DashboardStats> {
-  const supabase = await createClient()
+export async function getDashboardStats(from: string, to: string): Promise<DashboardStats | null> {
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
+
+  // Employees see no financial stats
+  if (!can(user.role, 'view_financials')) return null
 
   // Operating expenses only — vehicle purchases are inventory assets, not expenses
   const { data: expenseTxs } = await supabase
@@ -107,7 +111,7 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
 }
 
 async function getMonthlyTrend(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createServiceClient>,
   userId: string,
   currentMonth: string
 ) {
@@ -129,7 +133,6 @@ async function getMonthlyTrend(
 
     const list = txs ?? []
     const sales = list.filter(t => t.type === 'sale').reduce((s, t) => s + Number(t.amount), 0)
-    // Only operating expenses in trend — vehicle_purchase is inventory, not expense
     const expenses = list.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
 
     months.push({ month: m, sales, expenses, profit: sales - expenses })
@@ -139,7 +142,7 @@ async function getMonthlyTrend(
 }
 
 export async function getRecentTransactions(limit = 10) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) return []
 

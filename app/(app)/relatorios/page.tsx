@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { requireAuth } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 import { getDashboardStats } from '@/lib/actions/dashboard'
 import { getVehicles, getVehiclesWithProfitBatch } from '@/lib/actions/vehicles'
 import { formatBRL } from '@/lib/formatters'
@@ -18,7 +19,8 @@ export default async function RelatoriosPage({
 }: {
   searchParams: Promise<{ range?: string; from?: string; to?: string }>
 }) {
-  await requireAuth()
+  const user = await requireAuth()
+  if (user.role !== 'owner') redirect('/inicio')
   const params = await searchParams
   const dateRange = parseDateRange(params)
 
@@ -26,6 +28,7 @@ export default async function RelatoriosPage({
     getDashboardStats(dateRange.from, dateRange.to),
     getVehicles('sold'),
   ])
+  if (!stats) redirect('/inicio')
 
   const vehiclesWithProfit = await getVehiclesWithProfitBatch(vehicles.slice(0, 10))
 

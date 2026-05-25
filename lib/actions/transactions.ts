@@ -1,8 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth'
+import { can } from '@/lib/permissions'
 import type { TransactionType, PaymentMethod } from '@/lib/types'
 
 export interface AddExpenseInput {
@@ -63,7 +64,7 @@ export interface UpdateTransactionInput {
 }
 
 export async function addExpense(input: AddExpenseInput) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
@@ -85,7 +86,7 @@ export async function addExpense(input: AddExpenseInput) {
 }
 
 export async function addSale(input: AddSaleInput) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
@@ -114,7 +115,7 @@ export async function addSale(input: AddSaleInput) {
 }
 
 export async function addVehicle(input: AddVehicleInput) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
@@ -140,7 +141,7 @@ export async function addVehicle(input: AddVehicleInput) {
 
   if (vErr) throw new Error(vErr.message)
 
-  // Only record a capital transaction for owned vehicles — consigned vehicles are not dealership assets
+  // Only record a capital transaction for owned vehicles
   if (input.inventory_type === 'owned' && input.purchase_price > 0) {
     await supabase.from('transactions').insert({
       user_id: user.id,
@@ -158,11 +159,10 @@ export async function addVehicle(input: AddVehicleInput) {
 }
 
 export async function addVehiclePurchase(input: AddVehiclePurchaseInput) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
-  // Insert vehicle record
   const { data: vehicle, error: vErr } = await supabase
     .from('vehicles')
     .insert({
@@ -182,7 +182,6 @@ export async function addVehiclePurchase(input: AddVehiclePurchaseInput) {
 
   if (vErr) throw new Error(vErr.message)
 
-  // Insert vehicle_purchase transaction
   await supabase.from('transactions').insert({
     user_id: user.id,
     type: 'vehicle_purchase' as TransactionType,
@@ -198,7 +197,7 @@ export async function addVehiclePurchase(input: AddVehiclePurchaseInput) {
 }
 
 export async function updateTransaction(input: UpdateTransactionInput) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
@@ -255,9 +254,10 @@ export async function updateTransaction(input: UpdateTransactionInput) {
 }
 
 export async function deleteTransaction(id: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
+  if (!can(user.role, 'delete_transactions')) throw new Error('Sem permissão para excluir transações.')
 
   await supabase.from('transactions').delete().eq('id', id).eq('user_id', user.id)
   revalidatePath('/', 'layout')
@@ -271,7 +271,7 @@ export async function getTransactions(filters?: {
   limit?: number
   offset?: number
 }) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) return { data: [], count: 0 }
 
@@ -295,7 +295,7 @@ export async function getTransactions(filters?: {
 }
 
 export async function getCategories() {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) return []
 

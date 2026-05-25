@@ -1,8 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth'
+import { can } from '@/lib/permissions'
 import type { InventoryType, VehicleStatus, VehicleWithProfit, InventoryStats } from '@/lib/types'
 
 export interface UpdateVehicleInput {
@@ -22,7 +23,7 @@ export interface UpdateVehicleInput {
 }
 
 export async function getVehicles(status?: VehicleStatus) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) return []
 
@@ -39,7 +40,7 @@ export async function getVehicles(status?: VehicleStatus) {
 }
 
 export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfit | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) return null
 
@@ -68,7 +69,6 @@ export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfi
     .filter(t => t.type === 'expense')
     .reduce((s, t) => s + Number(t.amount), 0)
 
-  // Cost basis depends on inventory type
   const costBasis = vehicle.inventory_type === 'consigned'
     ? Number(vehicle.owner_payout_amount ?? 0)
     : Number(vehicle.purchase_price)
@@ -91,7 +91,7 @@ export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfi
 }
 
 export async function getInventoryStats(): Promise<InventoryStats> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
 
   const empty: InventoryStats = {
@@ -142,7 +142,6 @@ export async function getInventoryStats(): Promise<InventoryStats> {
       total_market_value += estPrice
       potential_profit += estPrice - cost
     } else {
-      // Fall back to cost basis as minimum known value
       total_market_value += cost
       missing_estimate_count++
     }
@@ -181,7 +180,7 @@ export async function getVehiclesWithProfitBatch(
 ): Promise<VehicleWithProfit[]> {
   if (vehicles.length === 0) return []
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) return []
 
@@ -223,7 +222,7 @@ export async function getVehiclesWithProfitBatch(
 }
 
 export async function updateVehicleStatus(id: string, status: VehicleStatus) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
@@ -237,7 +236,7 @@ export async function updateVehicleStatus(id: string, status: VehicleStatus) {
 }
 
 export async function updateVehicle(input: UpdateVehicleInput) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
@@ -263,7 +262,6 @@ export async function updateVehicle(input: UpdateVehicleInput) {
 
   if (error) throw new Error(error.message)
 
-  // Only sync the vehicle_purchase transaction for owned vehicles
   if (input.inventory_type === 'owned') {
     await supabase
       .from('transactions')
@@ -284,9 +282,10 @@ export async function updateVehicle(input: UpdateVehicleInput) {
 }
 
 export async function deleteVehicle(id: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
+  if (!can(user.role, 'delete_vehicles')) throw new Error('Sem permissão para excluir veículos.')
 
   await supabase.from('vehicles').delete().eq('id', id).eq('user_id', user.id)
   revalidatePath('/', 'layout')

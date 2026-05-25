@@ -1,21 +1,18 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 
 export function LogoutButton() {
-  const [pending, startTransition] = useTransition()
+  const [pending, setPending] = useState(false)
   const router = useRouter()
 
-  const handleLogout = () => {
-    startTransition(async () => {
-      const supabase = createClient()
-      await supabase.auth.signOut()
-      router.push('/login')
-      router.refresh()
-    })
+  const handleLogout = async () => {
+    setPending(true)
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/login')
+    router.refresh()
   }
 
   return (

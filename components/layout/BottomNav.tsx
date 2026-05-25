@@ -4,22 +4,24 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, ArrowLeftRight, Car, BarChart2, MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { UserRole } from '@/lib/session'
 
-const navItems = [
-  { href: '/inicio',     label: 'Início',     icon: Home },
-  { href: '/transacoes', label: 'Transações', icon: ArrowLeftRight },
-  { href: '/veiculos',   label: 'Veículos',   icon: Car },
-  { href: '/relatorios', label: 'Relatórios', icon: BarChart2 },
-  { href: '/mais',       label: 'Mais',       icon: MoreHorizontal },
+const NAV_ITEMS = [
+  { href: '/inicio',     label: 'Início',     icon: Home,           ownerOnly: false },
+  { href: '/transacoes', label: 'Transações', icon: ArrowLeftRight, ownerOnly: false },
+  { href: '/veiculos',   label: 'Veículos',   icon: Car,            ownerOnly: false },
+  { href: '/relatorios', label: 'Relatórios', icon: BarChart2,      ownerOnly: true  },
+  { href: '/mais',       label: 'Mais',       icon: MoreHorizontal, ownerOnly: false },
 ]
 
-export function BottomNav() {
+export function BottomNav({ role }: { role: UserRole }) {
   const pathname = usePathname()
+  const visibleItems = NAV_ITEMS.filter(item => !item.ownerOnly || role === 'owner')
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-xl border-t border-ios-border">
       <div className="flex items-stretch" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {visibleItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/inicio' && pathname.startsWith(href))
           return (
             <Link

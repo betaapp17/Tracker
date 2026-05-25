@@ -11,12 +11,14 @@ import { RecentTransactions } from '@/components/home/RecentTransactions'
 import { VehicleProfitCard } from '@/components/home/VehicleProfitCard'
 import { MonthlyTrend } from '@/components/home/MonthlyTrend'
 import { requireAuth } from '@/lib/auth'
+import { Card } from '@/components/ui/Card'
+import { Car } from 'lucide-react'
 import type { VehicleWithProfit } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
 async function DashboardContent() {
-  await requireAuth()
+  const user = await requireAuth()
   const month = currentMonthISO()
   const { from, to } = parseDateRange({})
 
@@ -26,8 +28,36 @@ async function DashboardContent() {
     getVehicles(),
   ])
 
-  const vehicleProfit = await getVehiclesWithProfitBatch(vehicles.slice(0, 6))
+  // Employee view: inventory summary + recent activity only
+  if (!stats) {
+    const inStock = vehicles.filter(v => v.status === 'in_stock')
+    return (
+      <div className="px-4 pt-12 space-y-4 animate-page-enter">
+        <div className="mb-2">
+          <h1 className="text-[26px] font-bold text-ios-primary">Olá, {user.name}</h1>
+          <p className="text-[14px] text-ios-secondary">{month}</p>
+        </div>
 
+        {/* Inventory summary */}
+        <Card className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-ios-fill flex items-center justify-center flex-shrink-0">
+            <Car className="w-6 h-6 text-ios-primary" />
+          </div>
+          <div>
+            <p className="text-[22px] font-bold text-ios-primary">{inStock.length}</p>
+            <p className="text-[13px] text-ios-secondary">
+              {inStock.length === 1 ? 'carro em estoque' : 'carros em estoque'}
+            </p>
+          </div>
+        </Card>
+
+        <RecentTransactions transactions={recentTxs as never} />
+      </div>
+    )
+  }
+
+  // Owner view: full dashboard
+  const vehicleProfit = await getVehiclesWithProfitBatch(vehicles.slice(0, 6))
   const hasVehicleProfit = stats.consignment_profit !== 0 || stats.owned_profit !== 0
 
   return (
