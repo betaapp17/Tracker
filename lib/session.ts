@@ -9,7 +9,10 @@ export interface SessionData {
   role: UserRole
   userId: string   // 'owner' or employee UUID
   name: string
+  lastActivity?: number  // unix ms timestamp, updated on every request
 }
+
+export const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
 
 export const sessionOptions = {
   password: process.env.SESSION_PASSWORD!,

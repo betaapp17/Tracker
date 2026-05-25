@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getIronSession } from 'iron-session'
-import { sessionOptions } from '@/lib/session'
+import { sessionOptions, INACTIVITY_TIMEOUT_MS } from '@/lib/session'
 import type { SessionData } from '@/lib/session'
 
 const PUBLIC_PATHS = ['/login', '/api/auth']
@@ -9,7 +9,6 @@ const PUBLIC_PATHS = ['/login', '/api/auth']
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public routes through
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
     return NextResponse.next()
   }
@@ -20,6 +19,16 @@ export async function middleware(request: NextRequest) {
   if (!session.loggedIn) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
+
+  // Expire session after inactivity
+  const now = Date.now()
+  if (session.lastActivity && now - session.lastActivity > INACTIVITY_TIMEOUT_MS) {
+    session.destroy()
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  session.lastActivity = now
+  await session.save()
 
   return response
 }
