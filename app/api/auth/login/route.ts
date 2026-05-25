@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
   session.role = role
   session.userId = resolvedUserId
   session.name = name
+  session.lastActivity = Date.now()
   await session.save()
 
   return NextResponse.json({ ok: true })

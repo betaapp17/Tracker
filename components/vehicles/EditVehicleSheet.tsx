@@ -27,6 +27,7 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptUrl, setReceiptUrl] = useState(vehicle.receipt_url)
+  const [hasCommission, setHasCommission] = useState(!!vehicle.commission_rate)
   const [form, setForm] = useState({
     make: vehicle.make,
     model: vehicle.model,
@@ -45,6 +46,7 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
     if (!open) return
     setReceiptFile(null)
     setReceiptUrl(vehicle.receipt_url)
+    setHasCommission(!!vehicle.commission_rate)
     setForm({
       make: vehicle.make,
       model: vehicle.model,
@@ -98,6 +100,7 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
           inventory_type: form.inventory_type,
           purchase_price,
           owner_payout_amount: owner_payout,
+          commission_rate: isConsigned && hasCommission ? 0.05 : null,
           estimated_sale_price: estimated > 0 ? estimated : null,
           purchase_date: form.purchase_date,
           status: form.status as VehicleStatus,
@@ -145,6 +148,31 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
           <Input label="Ano" type="number" value={form.year} onChange={e => set('year', e.target.value)} />
           <Input label="Placa" value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} />
         </div>
+
+        {isConsigned && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <button
+              onClick={() => setHasCommission(v => !v)}
+              className="w-full flex items-center justify-between"
+            >
+              <span className="text-[13px] text-amber-700 font-medium">Comissão 5% sobre repasse</span>
+              <div className={cn(
+                'w-11 h-6 rounded-full transition-colors relative',
+                hasCommission ? 'bg-amber-500' : 'bg-amber-200'
+              )}>
+                <div className={cn(
+                  'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                  hasCommission ? 'translate-x-5' : 'translate-x-0.5'
+                )} />
+              </div>
+            </button>
+            {hasCommission && (
+              <p className="text-[11px] text-amber-600 mt-2">
+                Comissão calculada automaticamente: 5% do valor do repasse ao dono.
+              </p>
+            )}
+          </div>
+        )}
 
         {isConsigned ? (
           <CurrencyInput

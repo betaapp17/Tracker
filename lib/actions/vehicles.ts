@@ -15,6 +15,7 @@ export interface UpdateVehicleInput {
   inventory_type: InventoryType
   purchase_price: number
   owner_payout_amount: number | null
+  commission_rate: number | null
   estimated_sale_price: number | null
   purchase_date: string
   status: VehicleStatus
@@ -65,16 +66,22 @@ export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfi
   const sale = transactions.find(t => t.type === 'sale')
   const sale_price = sale ? Number(sale.amount) : null
 
-  const linked_expenses = transactions
-    .filter(t => t.type === 'expense')
+  const expenseTxs = transactions.filter(t => t.type === 'expense')
+  const linked_expenses = expenseTxs.reduce((s, t) => s + Number(t.amount), 0)
+  const owner_prep_expenses = expenseTxs
+    .filter(t => t.is_owner_prep)
     .reduce((s, t) => s + Number(t.amount), 0)
 
-  const costBasis = vehicle.inventory_type === 'consigned'
+  const isConsigned = vehicle.inventory_type === 'consigned'
+  const costBasis = isConsigned
     ? Number(vehicle.owner_payout_amount ?? 0)
     : Number(vehicle.purchase_price)
+  const commission = isConsigned
+    ? Number(vehicle.owner_payout_amount ?? 0) * Number(vehicle.commission_rate ?? 0)
+    : 0
 
   const total_cost = costBasis + linked_expenses
-  const profit = sale_price !== null ? sale_price - total_cost : null
+  const profit = sale_price !== null ? sale_price - total_cost + commission : null
   const profit_margin =
     sale_price && sale_price > 0 ? ((profit ?? 0) / sale_price) * 100 : null
 
@@ -83,6 +90,8 @@ export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfi
     inventory_type: vehicle.inventory_type ?? 'owned',
     sale_price,
     linked_expenses,
+    owner_prep_expenses,
+    commission,
     total_cost,
     profit,
     profit_margin,
@@ -151,12 +160,13 @@ export async function getInventoryStats(): Promise<InventoryStats> {
   for (const v of consigned) {
     const linked = expenseMap.get(v.id) ?? 0
     const payout = Number(v.owner_payout_amount ?? 0)
+    const commission = payout * Number(v.commission_rate ?? 0)
     consigned_value += payout
 
     if (v.estimated_sale_price) {
       const estPrice = Number(v.estimated_sale_price)
       total_market_value += estPrice
-      potential_profit += estPrice - payout - linked
+      potential_profit += estPrice - payout - linked + commission
     } else {
       missing_estimate_count++
     }
@@ -198,14 +208,20 @@ export async function getVehiclesWithProfitBatch(
     const transactions = allTxs.filter(t => t.vehicle_id === vehicle.id)
     const sale = transactions.find(t => t.type === 'sale')
     const sale_price = sale ? Number(sale.amount) : null
-    const linked_expenses = transactions
-      .filter(t => t.type === 'expense')
+    const expenseTxs = transactions.filter(t => t.type === 'expense')
+    const linked_expenses = expenseTxs.reduce((s, t) => s + Number(t.amount), 0)
+    const owner_prep_expenses = expenseTxs
+      .filter(t => t.is_owner_prep)
       .reduce((s, t) => s + Number(t.amount), 0)
-    const costBasis = vehicle.inventory_type === 'consigned'
+    const isConsigned = vehicle.inventory_type === 'consigned'
+    const costBasis = isConsigned
       ? Number(vehicle.owner_payout_amount ?? 0)
       : Number(vehicle.purchase_price)
+    const commission = isConsigned
+      ? Number(vehicle.owner_payout_amount ?? 0) * Number(vehicle.commission_rate ?? 0)
+      : 0
     const total_cost = costBasis + linked_expenses
-    const profit = sale_price !== null ? sale_price - total_cost : null
+    const profit = sale_price !== null ? sale_price - total_cost + commission : null
     const profit_margin =
       sale_price && sale_price > 0 ? ((profit ?? 0) / sale_price) * 100 : null
     return {
@@ -213,6 +229,8 @@ export async function getVehiclesWithProfitBatch(
       inventory_type: (vehicle.inventory_type ?? 'owned') as VehicleWithProfit['inventory_type'],
       sale_price,
       linked_expenses,
+      owner_prep_expenses,
+      commission,
       total_cost,
       profit,
       profit_margin,
@@ -250,6 +268,7 @@ export async function updateVehicle(input: UpdateVehicleInput) {
       inventory_type: input.inventory_type,
       purchase_price: input.purchase_price,
       owner_payout_amount: input.owner_payout_amount,
+      commission_rate: input.commission_rate,
       estimated_sale_price: input.estimated_sale_price,
       purchase_date: input.purchase_date,
       status: input.status,

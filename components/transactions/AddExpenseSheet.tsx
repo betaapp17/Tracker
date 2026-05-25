@@ -12,6 +12,7 @@ import { getVehicles } from '@/lib/actions/vehicles'
 import { parseCurrencyInput } from '@/lib/currency'
 import { todayISO } from '@/lib/formatters'
 import { uploadReceipt } from '@/lib/receipts'
+import { cn } from '@/lib/utils'
 import type { TransactionCategory, Vehicle } from '@/lib/types'
 
 export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -20,6 +21,7 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
   const [categories, setCategories] = useState<TransactionCategory[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [isOwnerPrep, setIsOwnerPrep] = useState(false)
   const [form, setForm] = useState({
     amount: '',
     category_id: '',
@@ -38,6 +40,14 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
+  const selectedVehicle = vehicles.find(v => v.id === form.vehicle_id) ?? null
+  const isConsignedVehicle = selectedVehicle?.inventory_type === 'consigned'
+
+  const handleVehicleChange = (id: string) => {
+    set('vehicle_id', id)
+    setIsOwnerPrep(false)
+  }
+
   const handleSubmit = () => {
     const amount = parseCurrencyInput(form.amount)
     if (!form.amount || amount <= 0) return
@@ -51,11 +61,13 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
           date: form.date,
           payment_method: form.payment_method as never,
           vehicle_id: form.vehicle_id || null,
+          is_owner_prep: isConsignedVehicle && isOwnerPrep,
           notes: form.notes,
           receipt_url: receiptUrl,
         })
         setForm({ amount: '', category_id: '', description: '', date: todayISO(), payment_method: 'pix', vehicle_id: '', notes: '' })
         setReceiptFile(null)
+        setIsOwnerPrep(false)
         onClose()
         router.refresh()
       } catch { /* ignore */ }
@@ -101,12 +113,39 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
         </Select>
 
         {vehicles.length > 0 && (
-          <Select label="Vincular Veículo (opcional)" value={form.vehicle_id} onChange={e => set('vehicle_id', e.target.value)}>
+          <Select label="Vincular Veículo (opcional)" value={form.vehicle_id} onChange={e => handleVehicleChange(e.target.value)}>
             <option value="">Sem vínculo</option>
             {vehicles.map(v => (
-              <option key={v.id} value={v.id}>{v.year} {v.make} {v.model}</option>
+              <option key={v.id} value={v.id}>
+                {v.year} {v.make} {v.model}{v.inventory_type === 'consigned' ? ' · Consignado' : ''}
+              </option>
             ))}
           </Select>
+        )}
+
+        {isConsignedVehicle && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <button
+              onClick={() => setIsOwnerPrep(v => !v)}
+              className="w-full flex items-center justify-between"
+            >
+              <div>
+                <p className="text-[13px] text-amber-700 font-medium text-left">Pago pelo dono (reembolso)</p>
+                <p className="text-[11px] text-amber-600 mt-0.5 text-left">
+                  Marque se o dono do carro pagou essa despesa e será reembolsado na venda.
+                </p>
+              </div>
+              <div className={cn(
+                'flex-shrink-0 ml-3 w-11 h-6 rounded-full transition-colors relative',
+                isOwnerPrep ? 'bg-amber-500' : 'bg-amber-200'
+              )}>
+                <div className={cn(
+                  'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                  isOwnerPrep ? 'translate-x-5' : 'translate-x-0.5'
+                )} />
+              </div>
+            </button>
+          </div>
         )}
 
         <Input

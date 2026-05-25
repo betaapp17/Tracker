@@ -25,6 +25,7 @@ export interface Vehicle {
   purchase_price: number
   owner_payout_amount: number | null
   dealership_markup: number | null
+  commission_rate: number | null
   estimated_sale_price: number | null
   purchase_date: string
   status: VehicleStatus
@@ -44,6 +45,7 @@ export interface Transaction {
   vehicle_id: string | null
   date: string
   payment_method: PaymentMethod | null
+  is_owner_prep: boolean
   notes: string | null
   receipt_url: string | null
   created_at: string
@@ -56,6 +58,8 @@ export interface Transaction {
 export interface VehicleWithProfit extends Vehicle {
   sale_price: number | null
   linked_expenses: number
+  owner_prep_expenses: number
+  commission: number
   total_cost: number
   profit: number | null
   profit_margin: number | null

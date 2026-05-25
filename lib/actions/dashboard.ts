@@ -26,7 +26,7 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
   // Sales in range with vehicle data for profit calculation
   const { data: saleTxs } = await supabase
     .from('transactions')
-    .select('amount, vehicle_id, vehicle:vehicles(id, inventory_type, purchase_price, owner_payout_amount)')
+    .select('amount, vehicle_id, vehicle:vehicles(id, inventory_type, purchase_price, owner_payout_amount, commission_rate)')
     .eq('user_id', user.id)
     .eq('type', 'sale')
     .gte('date', from)
@@ -67,7 +67,9 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
     const linkedExp = sale.vehicle_id ? (vehicleExpenseMap.get(sale.vehicle_id) ?? 0) : 0
 
     if (vehicle.inventory_type === 'consigned') {
-      consignment_profit += saleAmount - Number(vehicle.owner_payout_amount ?? 0) - linkedExp
+      const payout = Number(vehicle.owner_payout_amount ?? 0)
+      const commission = payout * Number((vehicle as { commission_rate?: number }).commission_rate ?? 0)
+      consignment_profit += saleAmount - payout - linkedExp + commission
     } else {
       owned_profit += saleAmount - Number(vehicle.purchase_price) - linkedExp
     }

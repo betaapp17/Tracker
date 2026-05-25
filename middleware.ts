@@ -23,8 +23,9 @@ export async function middleware(request: NextRequest) {
   // Expire session after inactivity
   const now = Date.now()
   if (session.lastActivity && now - session.lastActivity > INACTIVITY_TIMEOUT_MS) {
-    session.destroy()
-    return NextResponse.redirect(new URL('/login', request.url))
+    const redirect = NextResponse.redirect(new URL('/login', request.url))
+    redirect.cookies.delete('tq-session')
+    return redirect
   }
 
   session.lastActivity = now

@@ -8,6 +8,7 @@ const TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
 export function InactivityGuard() {
   const router = useRouter()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastActivityRef = useRef<number>(Date.now())
 
   useEffect(() => {
     const logout = async () => {
@@ -16,21 +17,36 @@ export function InactivityGuard() {
     }
 
     const reset = () => {
+      lastActivityRef.current = Date.now()
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(logout, TIMEOUT_MS)
     }
 
-    // Reset timer on any interaction
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        // App returned from background — check if timeout already passed
+        const elapsed = Date.now() - lastActivityRef.current
+        if (elapsed >= TIMEOUT_MS) {
+          logout()
+        } else {
+          // Reschedule for the remaining time
+          if (timerRef.current) clearTimeout(timerRef.current)
+          timerRef.current = setTimeout(logout, TIMEOUT_MS - elapsed)
+        }
+      } else {
+        // App going to background — pause the timer so it doesn't fire while hidden
+        if (timerRef.current) {
+          clearTimeout(timerRef.current)
+          timerRef.current = null
+        }
+      }
+    }
+
     const events = ['touchstart', 'mousedown', 'keydown', 'scroll'] as const
     events.forEach(e => window.addEventListener(e, reset, { passive: true }))
-
-    // When returning to the app after backgrounding, trigger a server check
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') router.refresh()
-    }
     document.addEventListener('visibilitychange', handleVisibility)
 
-    reset() // start the initial timer
+    reset()
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)

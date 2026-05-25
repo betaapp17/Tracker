@@ -31,6 +31,7 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [inventoryType, setInventoryType] = useState<InventoryType>('owned')
+  const [hasCommission, setHasCommission] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [form, setForm] = useState(emptyForm)
 
@@ -57,6 +58,7 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
           plate: form.plate,
           purchase_price,
           owner_payout_amount: owner_payout,
+          commission_rate: !isOwned && hasCommission ? 0.05 : null,
           estimated_sale_price: estimated > 0 ? estimated : null,
           purchase_date: form.purchase_date,
           notes: form.notes,
@@ -65,6 +67,7 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
         setForm(emptyForm)
         setReceiptFile(null)
         setInventoryType('owned')
+        setHasCommission(false)
         onClose()
         router.refresh()
       } catch { /* ignore */ }
@@ -80,7 +83,7 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
           {(['owned', 'consigned'] as const).map(type => (
             <button
               key={type}
-              onClick={() => setInventoryType(type)}
+              onClick={() => { setInventoryType(type); setHasCommission(false) }}
               className={cn(
                 'flex-1 py-2 rounded-lg text-[14px] font-medium transition-all',
                 inventoryType === type
@@ -94,11 +97,34 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
         </div>
 
         {inventoryType === 'consigned' && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            <p className="text-[12px] text-amber-700 font-medium">Veículo Consignado</p>
-            <p className="text-[11px] text-amber-600 mt-0.5">
-              O veículo pertence ao dono. A loja recebe o markup/comissão na venda.
-            </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-3">
+            <div>
+              <p className="text-[12px] text-amber-700 font-medium">Veículo Consignado</p>
+              <p className="text-[11px] text-amber-600 mt-0.5">
+                O veículo pertence ao dono. A loja recebe o markup/comissão na venda.
+              </p>
+            </div>
+            {/* Commission toggle */}
+            <button
+              onClick={() => setHasCommission(v => !v)}
+              className="w-full flex items-center justify-between"
+            >
+              <span className="text-[13px] text-amber-700 font-medium">Comissão 5% sobre repasse</span>
+              <div className={cn(
+                'w-11 h-6 rounded-full transition-colors relative',
+                hasCommission ? 'bg-amber-500' : 'bg-amber-200'
+              )}>
+                <div className={cn(
+                  'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                  hasCommission ? 'translate-x-5' : 'translate-x-0.5'
+                )} />
+              </div>
+            </button>
+            {hasCommission && (
+              <p className="text-[11px] text-amber-600">
+                A comissão será calculada automaticamente: 5% do valor do repasse ao dono.
+              </p>
+            )}
           </div>
         )}
 

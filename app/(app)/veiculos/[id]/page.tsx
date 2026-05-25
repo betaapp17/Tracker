@@ -31,10 +31,24 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
     ? (vehicle.owner_payout_amount ?? 0)
     : vehicle.purchase_price
 
+  const dealerExpenses = vehicle.linked_expenses - vehicle.owner_prep_expenses
+  const hasOwnerPrep = vehicle.owner_prep_expenses > 0
+  const hasCommission = vehicle.commission > 0
+
   const rows = [
     { label: costLabel, value: formatBRL(costValue), color: 'text-expense' },
-    { label: 'Despesas Vinculadas', value: formatBRL(vehicle.linked_expenses), color: 'text-expense' },
+    ...(hasOwnerPrep
+      ? [{ label: 'Reembolso ao Dono (prep)', value: formatBRL(vehicle.owner_prep_expenses), color: 'text-expense' }]
+      : []),
+    ...(dealerExpenses > 0
+      ? [{ label: 'Despesas da Loja', value: formatBRL(dealerExpenses), color: 'text-expense' }]
+      : vehicle.linked_expenses > 0 && !hasOwnerPrep
+        ? [{ label: 'Despesas Vinculadas', value: formatBRL(vehicle.linked_expenses), color: 'text-expense' }]
+        : []),
     { label: 'Custo Total', value: formatBRL(vehicle.total_cost), color: 'text-expense', bold: true },
+    ...(hasCommission
+      ? [{ label: 'Comissão (5%)', value: `+${formatBRL(vehicle.commission)}`, color: 'text-profit' }]
+      : []),
     ...(hasSale
       ? [{ label: 'Preço de Venda', value: formatBRL(vehicle.sale_price!), color: 'text-profit', bold: true }]
       : []),
@@ -129,6 +143,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
           <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
             <p className="text-[11px] text-amber-600">
               Veículo consignado — o repasse ao dono é descontado do lucro da loja.
+              {hasCommission && ' Comissão de 5% sobre o repasse incluída no lucro.'}
             </p>
           </div>
         )}

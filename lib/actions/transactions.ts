@@ -13,6 +13,7 @@ export interface AddExpenseInput {
   date: string
   payment_method: PaymentMethod
   vehicle_id: string | null
+  is_owner_prep: boolean
   notes: string
   receipt_url: string | null
 }
@@ -45,6 +46,7 @@ export interface AddVehicleInput {
   plate: string
   purchase_price: number
   owner_payout_amount: number | null
+  commission_rate: number | null
   estimated_sale_price: number | null
   purchase_date: string
   notes: string
@@ -77,6 +79,7 @@ export async function addExpense(input: AddExpenseInput) {
     date: input.date,
     payment_method: input.payment_method,
     vehicle_id: input.vehicle_id,
+    is_owner_prep: input.is_owner_prep,
     notes: input.notes || null,
     receipt_url: input.receipt_url,
   })
@@ -130,6 +133,7 @@ export async function addVehicle(input: AddVehicleInput) {
       inventory_type: input.inventory_type,
       purchase_price: input.purchase_price,
       owner_payout_amount: input.owner_payout_amount,
+      commission_rate: input.commission_rate,
       estimated_sale_price: input.estimated_sale_price,
       purchase_date: input.purchase_date,
       notes: input.notes || null,
