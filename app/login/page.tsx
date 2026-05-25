@@ -144,9 +144,6 @@ function UserSelectScreen({
             </div>
             <div>
               <p className="text-[16px] font-semibold text-ios-primary">{user.name}</p>
-              <p className="text-[12px] text-ios-secondary">
-                {user.type === 'owner' ? 'Proprietário · Acesso total' : 'Funcionário'}
-              </p>
             </div>
           </button>
         ))}
