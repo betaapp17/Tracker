@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input } from '@/components/ui/Input'
@@ -34,6 +34,8 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
   const [hasCommission, setHasCommission] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [error, setError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
@@ -46,6 +48,10 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
     if (!form.make || !form.model) return
     if (isOwned && purchase_price <= 0) return
     if (!isOwned && (owner_payout === null || owner_payout < 0)) return
+    if (submittingRef.current || pending) return
+
+    submittingRef.current = true
+    setError(null)
 
     startTransition(async () => {
       try {
@@ -70,7 +76,10 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
         setHasCommission(false)
         onClose()
         router.refresh()
-      } catch { /* ignore */ }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao adicionar veículo. Tente novamente.')
+        submittingRef.current = false
+      }
     })
   }
 
@@ -197,6 +206,10 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
           file={receiptFile}
           onFileChange={setReceiptFile}
         />
+
+        {error && (
+          <p className="text-[13px] text-expense text-center">{error}</p>
+        )}
 
         <Button onClick={handleSubmit} loading={pending} className="bg-ios-primary text-white mt-2">
           {inventoryType === 'owned' ? 'Adicionar ao Estoque' : 'Registrar Consignado'}

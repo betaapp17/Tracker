@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
@@ -26,6 +26,8 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
   const [pending, startTransition] = useTransition()
   const [deletePending, startDeleteTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
   const [categories, setCategories] = useState<TransactionCategory[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
@@ -44,6 +46,8 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
   useEffect(() => {
     if (!open) return
 
+    setError(null)
+    submittingRef.current = false
     setReceiptFile(null)
     setReceiptUrl(transaction.receipt_url)
     setIsOwnerPrep(transaction.is_owner_prep ?? false)
@@ -76,7 +80,10 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
 
   const handleSave = () => {
     const amount = parseCurrencyInput(form.amount)
-    if (amount <= 0) return
+    if (amount <= 0 || submittingRef.current || pending) return
+
+    submittingRef.current = true
+    setError(null)
 
     startTransition(async () => {
       try {
@@ -97,8 +104,9 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
 
         onClose()
         router.refresh()
-      } catch {
-        // Keep the sheet open so the user can retry.
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.')
+        submittingRef.current = false
       }
     })
   }
@@ -214,6 +222,10 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
           onFileChange={setReceiptFile}
           onRemoveReceipt={() => setReceiptUrl(null)}
         />
+
+        {error && (
+          <p className="text-[13px] text-expense text-center">{error}</p>
+        )}
 
         <Button onClick={handleSave} loading={pending}>
           Salvar Alterações

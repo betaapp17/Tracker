@@ -86,13 +86,30 @@ export async function addExpense(input: AddExpenseInput) {
   })
 
   if (error) throw new Error(error.message)
-  revalidatePath('/', 'layout')
+  revalidatePath('/inicio')
+  revalidatePath('/transacoes')
+  revalidatePath('/relatorios')
 }
 
 export async function addSale(input: AddSaleInput) {
   const supabase = createServiceClient()
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
+
+  // Atomically mark the vehicle as sold only if it is still in_stock.
+  // Using .eq('status', 'in_stock') as an optimistic lock prevents two users
+  // from simultaneously selling the same vehicle — the second request will
+  // see 0 updated rows and throw before inserting a duplicate sale transaction.
+  const { data: sold, error: soldErr } = await supabase
+    .from('vehicles')
+    .update({ status: 'sold', updated_at: new Date().toISOString() })
+    .eq('id', input.vehicle_id)
+    .eq('user_id', user.id)
+    .eq('status', 'in_stock')
+    .select('id')
+
+  if (soldErr) throw new Error(soldErr.message)
+  if (!sold || sold.length === 0) throw new Error('Veículo já foi vendido ou não encontrado.')
 
   const { error: txError } = await supabase.from('transactions').insert({
     user_id: user.id,
@@ -108,14 +125,10 @@ export async function addSale(input: AddSaleInput) {
 
   if (txError) throw new Error(txError.message)
 
-  // Mark vehicle as sold
-  await supabase
-    .from('vehicles')
-    .update({ status: 'sold', updated_at: new Date().toISOString() })
-    .eq('id', input.vehicle_id)
-    .eq('user_id', user.id)
-
-  revalidatePath('/', 'layout')
+  revalidatePath('/inicio')
+  revalidatePath('/transacoes')
+  revalidatePath('/relatorios')
+  revalidatePath('/veiculos')
 }
 
 export async function addVehicle(input: AddVehicleInput) {
@@ -160,7 +173,8 @@ export async function addVehicle(input: AddVehicleInput) {
     })
   }
 
-  revalidatePath('/', 'layout')
+  revalidatePath('/inicio')
+  revalidatePath('/veiculos')
 }
 
 export async function addVehiclePurchase(input: AddVehiclePurchaseInput) {
@@ -198,7 +212,8 @@ export async function addVehiclePurchase(input: AddVehiclePurchaseInput) {
     receipt_url: input.receipt_url,
   })
 
-  revalidatePath('/', 'layout')
+  revalidatePath('/inicio')
+  revalidatePath('/veiculos')
 }
 
 export async function updateTransaction(input: UpdateTransactionInput) {
@@ -256,7 +271,10 @@ export async function updateTransaction(input: UpdateTransactionInput) {
       .eq('user_id', user.id)
   }
 
-  revalidatePath('/', 'layout')
+  revalidatePath('/inicio')
+  revalidatePath('/transacoes')
+  revalidatePath('/relatorios')
+  revalidatePath('/veiculos')
 }
 
 export async function deleteTransaction(id: string) {
@@ -266,7 +284,9 @@ export async function deleteTransaction(id: string) {
   if (!can(user.role, 'delete_transactions')) throw new Error('Sem permissão para excluir transações.')
 
   await supabase.from('transactions').delete().eq('id', id).eq('user_id', user.id)
-  revalidatePath('/', 'layout')
+  revalidatePath('/inicio')
+  revalidatePath('/transacoes')
+  revalidatePath('/relatorios')
 }
 
 export async function getTransactions(filters?: {

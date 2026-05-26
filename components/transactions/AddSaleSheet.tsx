@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input, Select } from '@/components/ui/Input'
@@ -19,6 +19,8 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
   const [pending, startTransition] = useTransition()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
   const [form, setForm] = useState({
     vehicle_id: '',
     amount: '',
@@ -29,6 +31,8 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
 
   useEffect(() => {
     if (!open) return
+    setError(null)
+    submittingRef.current = false
     getVehicles('in_stock').then(setVehicles)
   }, [open])
 
@@ -39,7 +43,9 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
 
   const handleSubmit = () => {
     const amount = parseCurrencyInput(form.amount)
-    if (!form.vehicle_id || !form.amount || amount <= 0) return
+    if (!form.vehicle_id || !form.amount || amount <= 0 || submittingRef.current || pending) return
+    submittingRef.current = true
+    setError(null)
     startTransition(async () => {
       try {
         const receiptUrl = receiptFile ? await uploadReceipt(receiptFile) : null
@@ -55,7 +61,10 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
         setReceiptFile(null)
         onClose()
         router.refresh()
-      } catch { /* ignore */ }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao registrar venda. Tente novamente.')
+        submittingRef.current = false
+      }
     })
   }
 
@@ -118,6 +127,10 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
           file={receiptFile}
           onFileChange={setReceiptFile}
         />
+
+        {error && (
+          <p className="text-[13px] text-expense text-center">{error}</p>
+        )}
 
         <Button onClick={handleSubmit} loading={pending} className="bg-profit text-white mt-2">
           Confirmar Venda

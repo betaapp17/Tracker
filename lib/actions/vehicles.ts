@@ -253,7 +253,8 @@ export async function updateVehicleStatus(id: string, status: VehicleStatus) {
     .eq('id', id)
     .eq('user_id', user.id)
 
-  revalidatePath('/', 'layout')
+  revalidatePath('/inicio')
+  revalidatePath('/veiculos')
 }
 
 export async function updateVehicle(input: UpdateVehicleInput) {
@@ -300,7 +301,8 @@ export async function updateVehicle(input: UpdateVehicleInput) {
       .eq('user_id', user.id)
   }
 
-  revalidatePath('/', 'layout')
+  revalidatePath('/inicio')
+  revalidatePath('/veiculos')
 }
 
 export async function deleteVehicle(id: string) {
@@ -310,5 +312,6 @@ export async function deleteVehicle(id: string) {
   if (!can(user.role, 'delete_vehicles')) throw new Error('Sem permissão para excluir veículos.')
 
   await supabase.from('vehicles').delete().eq('id', id).eq('user_id', user.id)
-  revalidatePath('/', 'layout')
+  revalidatePath('/inicio')
+  revalidatePath('/veiculos')
 }

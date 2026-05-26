@@ -39,15 +39,17 @@ body {
   scrollbar-width: none;
 }
 
-/* Bottom sheet backdrop */
-.sheet-backdrop {
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
+/* Bottom sheet backdrop — no blur, too GPU-expensive on mid-range phones */
+.sheet-backdrop {}
 
 /* Number formatting */
 .tabular-nums {
   font-feature-settings: 'tnum', 'kern';
+}
+
+/* Eliminate the 300ms tap delay on mobile — makes every button feel instant */
+button, a, [role="button"] {
+  touch-action: manipulation;
 }
 
 /* iOS-style press feedback */

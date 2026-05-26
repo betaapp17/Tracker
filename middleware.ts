@@ -28,8 +28,13 @@ export async function middleware(request: NextRequest) {
     return redirect
   }
 
-  session.lastActivity = now
-  await session.save()
+  // Only write the cookie when lastActivity is stale (>30s).
+  // This avoids re-encrypting and sending Set-Cookie on every request,
+  // which is the main source of server overload when multiple users are active.
+  if (!session.lastActivity || now - session.lastActivity > 30_000) {
+    session.lastActivity = now
+    await session.save()
+  }
 
   return response
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
@@ -25,6 +25,8 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
   const [pending, startTransition] = useTransition()
   const [deletePending, startDeleteTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptUrl, setReceiptUrl] = useState(vehicle.receipt_url)
   const [hasCommission, setHasCommission] = useState(!!vehicle.commission_rate)
@@ -44,6 +46,8 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
 
   useEffect(() => {
     if (!open) return
+    setError(null)
+    submittingRef.current = false
     setReceiptFile(null)
     setReceiptUrl(vehicle.receipt_url)
     setHasCommission(!!vehicle.commission_rate)
@@ -86,6 +90,10 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
 
     if (!form.make || !form.model) return
     if (!isConsigned && purchase_price <= 0) return
+    if (submittingRef.current || pending) return
+
+    submittingRef.current = true
+    setError(null)
 
     startTransition(async () => {
       try {
@@ -110,8 +118,9 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
 
         onClose()
         router.refresh()
-      } catch {
-        // Keep sheet open on error
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.')
+        submittingRef.current = false
       }
     })
   }
@@ -219,6 +228,10 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
           onFileChange={setReceiptFile}
           onRemoveReceipt={() => setReceiptUrl(null)}
         />
+
+        {error && (
+          <p className="text-[13px] text-expense text-center">{error}</p>
+        )}
 
         <Button onClick={handleSave} loading={pending}>
           Salvar Alterações
