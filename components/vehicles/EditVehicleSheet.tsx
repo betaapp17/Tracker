@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
@@ -12,6 +12,7 @@ import { currencyInputFromNumber, parseCurrencyInput } from '@/lib/currency'
 import { uploadReceipt } from '@/lib/receipts'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { cn } from '@/lib/utils'
+import { useSafeSubmit } from '@/lib/hooks/useSafeSubmit'
 import type { VehicleWithProfit, VehicleStatus, InventoryType } from '@/lib/types'
 
 interface EditVehicleSheetProps {
@@ -22,11 +23,10 @@ interface EditVehicleSheetProps {
 
 export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetProps) {
   const router = useRouter()
-  const [pending, startTransition] = useTransition()
-  const [deletePending, startDeleteTransition] = useTransition()
+  const { saving, run } = useSafeSubmit()
+  const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const submittingRef = useRef(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptUrl, setReceiptUrl] = useState(vehicle.receipt_url)
   const [hasCommission, setHasCommission] = useState(!!vehicle.commission_rate)
@@ -47,7 +47,6 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
   useEffect(() => {
     if (!open) return
     setError(null)
-    submittingRef.current = false
     setReceiptFile(null)
     setReceiptUrl(vehicle.receipt_url)
     setHasCommission(!!vehicle.commission_rate)
@@ -70,15 +69,19 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
 
   const isConsigned = form.inventory_type === 'consigned'
 
-  const handleDelete = () => {
-    startDeleteTransition(async () => {
-      try {
-        await deleteVehicle(vehicle.id)
-        setConfirmDelete(false)
-        onClose()
-        router.refresh()
-      } catch { /* ignore */ }
-    })
+  const handleDelete = async () => {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await deleteVehicle(vehicle.id)
+      setConfirmDelete(false)
+      onClose()
+      router.refresh()
+    } catch {
+      // ignore
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const linkedCount = vehicle.transactions.filter(t => t.type !== 'vehicle_purchase').length
@@ -90,13 +93,10 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
 
     if (!form.make || !form.model) return
     if (!isConsigned && purchase_price <= 0) return
-    if (submittingRef.current || pending) return
 
-    submittingRef.current = true
     setError(null)
-
-    startTransition(async () => {
-      try {
+    run(
+      async () => {
         const uploadedReceiptUrl = receiptFile ? await uploadReceipt(receiptFile) : receiptUrl
 
         await updateVehicle({
@@ -118,10 +118,14 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
 
         onClose()
         router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.')
-        submittingRef.current = false
-      }
+      },
+      reason => setError(
+        reason === 'timeout'
+          ? 'Tempo limite atingido. Verifique sua conexão e tente novamente.'
+          : 'Conexão interrompida. Toque em Salvar novamente.'
+      )
+    ).catch(err => {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.')
     })
   }
 
@@ -130,7 +134,6 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
     <BottomSheet open={open} onClose={onClose} title="Editar Veículo">
       <div className="space-y-4 pb-6">
 
-        {/* Inventory type toggle */}
         <div className="flex bg-ios-fill rounded-xl p-1 gap-1">
           {(['owned', 'consigned'] as const).map(type => (
             <button
@@ -233,7 +236,7 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
           <p className="text-[13px] text-expense text-center">{error}</p>
         )}
 
-        <Button onClick={handleSave} loading={pending}>
+        <Button onClick={handleSave} loading={saving}>
           Salvar Alterações
         </Button>
 
@@ -250,7 +253,7 @@ export function EditVehicleSheet({ vehicle, open, onClose }: EditVehicleSheetPro
       open={confirmDelete}
       onClose={() => setConfirmDelete(false)}
       onConfirm={handleDelete}
-      loading={deletePending}
+      loading={deleting}
       title="Excluir veículo?"
       message={`${vehicle.year} ${vehicle.make} ${vehicle.model} será removido permanentemente.`}
       warning={

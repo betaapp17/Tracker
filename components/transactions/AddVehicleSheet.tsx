@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useTransition } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input } from '@/components/ui/Input'
@@ -12,6 +12,7 @@ import { parseCurrencyInput } from '@/lib/currency'
 import { todayISO } from '@/lib/formatters'
 import { uploadReceipt } from '@/lib/receipts'
 import { cn } from '@/lib/utils'
+import { useSafeSubmit } from '@/lib/hooks/useSafeSubmit'
 
 type InventoryType = 'owned' | 'consigned'
 
@@ -29,13 +30,12 @@ const emptyForm = {
 
 export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter()
-  const [pending, startTransition] = useTransition()
+  const { saving, run } = useSafeSubmit()
   const [inventoryType, setInventoryType] = useState<InventoryType>('owned')
   const [hasCommission, setHasCommission] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState<string | null>(null)
-  const submittingRef = useRef(false)
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
@@ -48,13 +48,10 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
     if (!form.make || !form.model) return
     if (isOwned && purchase_price <= 0) return
     if (!isOwned && (owner_payout === null || owner_payout < 0)) return
-    if (submittingRef.current || pending) return
 
-    submittingRef.current = true
     setError(null)
-
-    startTransition(async () => {
-      try {
+    run(
+      async () => {
         const receiptUrl = receiptFile ? await uploadReceipt(receiptFile) : null
         await addVehicle({
           inventory_type: inventoryType,
@@ -76,10 +73,14 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
         setHasCommission(false)
         onClose()
         router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao adicionar veículo. Tente novamente.')
-        submittingRef.current = false
-      }
+      },
+      reason => setError(
+        reason === 'timeout'
+          ? 'Tempo limite atingido. Verifique sua conexão e tente novamente.'
+          : 'Conexão interrompida. Toque em Salvar novamente.'
+      )
+    ).catch(err => {
+      setError(err instanceof Error ? err.message : 'Erro ao adicionar veículo. Tente novamente.')
     })
   }
 
@@ -113,7 +114,6 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
                 O veículo pertence ao dono. A loja recebe o markup/comissão na venda.
               </p>
             </div>
-            {/* Commission toggle */}
             <button
               onClick={() => setHasCommission(v => !v)}
               className="w-full flex items-center justify-between"
@@ -211,7 +211,7 @@ export function AddVehicleSheet({ open, onClose }: { open: boolean; onClose: () 
           <p className="text-[13px] text-expense text-center">{error}</p>
         )}
 
-        <Button onClick={handleSubmit} loading={pending} className="bg-ios-primary text-white mt-2">
+        <Button onClick={handleSubmit} loading={saving} className="bg-ios-primary text-white mt-2">
           {inventoryType === 'owned' ? 'Adicionar ao Estoque' : 'Registrar Consignado'}
         </Button>
       </div>

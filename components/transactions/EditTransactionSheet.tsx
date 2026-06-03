@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +13,7 @@ import { getVehicles } from '@/lib/actions/vehicles'
 import { currencyInputFromNumber, parseCurrencyInput } from '@/lib/currency'
 import { uploadReceipt } from '@/lib/receipts'
 import { cn } from '@/lib/utils'
+import { useSafeSubmit } from '@/lib/hooks/useSafeSubmit'
 import type { PaymentMethod, Transaction, TransactionCategory, Vehicle } from '@/lib/types'
 
 interface EditTransactionSheetProps {
@@ -23,11 +24,10 @@ interface EditTransactionSheetProps {
 
 export function EditTransactionSheet({ transaction, open, onClose }: EditTransactionSheetProps) {
   const router = useRouter()
-  const [pending, startTransition] = useTransition()
-  const [deletePending, startDeleteTransition] = useTransition()
+  const { saving, run } = useSafeSubmit()
+  const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const submittingRef = useRef(false)
   const [categories, setCategories] = useState<TransactionCategory[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
@@ -47,7 +47,6 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
     if (!open) return
 
     setError(null)
-    submittingRef.current = false
     setReceiptFile(null)
     setReceiptUrl(transaction.receipt_url)
     setIsOwnerPrep(transaction.is_owner_prep ?? false)
@@ -80,13 +79,10 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
 
   const handleSave = () => {
     const amount = parseCurrencyInput(form.amount)
-    if (amount <= 0 || submittingRef.current || pending) return
-
-    submittingRef.current = true
+    if (amount <= 0) return
     setError(null)
-
-    startTransition(async () => {
-      try {
+    run(
+      async () => {
         const uploadedReceiptUrl = receiptFile ? await uploadReceipt(receiptFile) : receiptUrl
 
         await updateTransaction({
@@ -104,22 +100,30 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
 
         onClose()
         router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.')
-        submittingRef.current = false
-      }
+      },
+      reason => setError(
+        reason === 'timeout'
+          ? 'Tempo limite atingido. Verifique sua conexão e tente novamente.'
+          : 'Conexão interrompida. Toque em Salvar novamente.'
+      )
+    ).catch(err => {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.')
     })
   }
 
-  const handleDelete = () => {
-    startDeleteTransition(async () => {
-      try {
-        await deleteTransaction(transaction.id)
-        setConfirmDelete(false)
-        onClose()
-        router.refresh()
-      } catch { /* ignore */ }
-    })
+  const handleDelete = async () => {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await deleteTransaction(transaction.id)
+      setConfirmDelete(false)
+      onClose()
+      router.refresh()
+    } catch {
+      // ignore
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const typeLabels: Record<string, string> = {
@@ -227,7 +231,7 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
           <p className="text-[13px] text-expense text-center">{error}</p>
         )}
 
-        <Button onClick={handleSave} loading={pending}>
+        <Button onClick={handleSave} loading={saving}>
           Salvar Alterações
         </Button>
 
@@ -244,7 +248,7 @@ export function EditTransactionSheet({ transaction, open, onClose }: EditTransac
       open={confirmDelete}
       onClose={() => setConfirmDelete(false)}
       onConfirm={handleDelete}
-      loading={deletePending}
+      loading={deleting}
       title="Excluir transação?"
       message={`Esta ${typeLabels[transaction.type] ?? 'transação'} de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(transaction.amount))} será removida permanentemente.`}
       confirmLabel="Sim, excluir"

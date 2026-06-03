@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useTransition } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input, Select } from '@/components/ui/Input'
@@ -13,15 +13,15 @@ import { parseCurrencyInput } from '@/lib/currency'
 import { todayISO } from '@/lib/formatters'
 import { uploadReceipt } from '@/lib/receipts'
 import { cn } from '@/lib/utils'
+import { useSafeSubmit } from '@/lib/hooks/useSafeSubmit'
 import type { TransactionCategory, Vehicle } from '@/lib/types'
 
 export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter()
-  const [pending, startTransition] = useTransition()
+  const { saving, run } = useSafeSubmit()
   const [categories, setCategories] = useState<TransactionCategory[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [error, setError] = useState<string | null>(null)
-  const submittingRef = useRef(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [isOwnerPrep, setIsOwnerPrep] = useState(false)
   const [form, setForm] = useState({
@@ -37,7 +37,6 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
   useEffect(() => {
     if (!open) return
     setError(null)
-    submittingRef.current = false
     getCategories().then(c => setCategories(c.filter(x => x.type === 'expense')))
     getVehicles('in_stock').then(setVehicles)
   }, [open])
@@ -54,11 +53,10 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
 
   const handleSubmit = () => {
     const amount = parseCurrencyInput(form.amount)
-    if (!form.amount || amount <= 0 || submittingRef.current || pending) return
-    submittingRef.current = true
+    if (!form.amount || amount <= 0) return
     setError(null)
-    startTransition(async () => {
-      try {
+    run(
+      async () => {
         const receiptUrl = receiptFile ? await uploadReceipt(receiptFile) : null
         await addExpense({
           amount,
@@ -76,10 +74,14 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
         setIsOwnerPrep(false)
         onClose()
         router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.')
-        submittingRef.current = false
-      }
+      },
+      reason => setError(
+        reason === 'timeout'
+          ? 'Tempo limite atingido. Verifique sua conexão e tente novamente.'
+          : 'Conexão interrompida. Toque em Salvar novamente.'
+      )
+    ).catch(err => {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.')
     })
   }
 
@@ -175,7 +177,7 @@ export function AddExpenseSheet({ open, onClose }: { open: boolean; onClose: () 
 
         <Button
           onClick={handleSubmit}
-          loading={pending}
+          loading={saving}
           className="bg-expense text-white mt-2"
         >
           Registrar Despesa

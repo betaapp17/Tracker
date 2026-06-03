@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useTransition } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Input, Select } from '@/components/ui/Input'
@@ -12,15 +12,15 @@ import { getVehicles } from '@/lib/actions/vehicles'
 import { parseCurrencyInput } from '@/lib/currency'
 import { todayISO, formatBRL } from '@/lib/formatters'
 import { uploadReceipt } from '@/lib/receipts'
+import { useSafeSubmit } from '@/lib/hooks/useSafeSubmit'
 import type { Vehicle } from '@/lib/types'
 
 export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter()
-  const [pending, startTransition] = useTransition()
+  const { saving, run } = useSafeSubmit()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const submittingRef = useRef(false)
   const [form, setForm] = useState({
     vehicle_id: '',
     amount: '',
@@ -32,7 +32,6 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
   useEffect(() => {
     if (!open) return
     setError(null)
-    submittingRef.current = false
     getVehicles('in_stock').then(setVehicles)
   }, [open])
 
@@ -43,11 +42,10 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
 
   const handleSubmit = () => {
     const amount = parseCurrencyInput(form.amount)
-    if (!form.vehicle_id || !form.amount || amount <= 0 || submittingRef.current || pending) return
-    submittingRef.current = true
+    if (!form.vehicle_id || !form.amount || amount <= 0) return
     setError(null)
-    startTransition(async () => {
-      try {
+    run(
+      async () => {
         const receiptUrl = receiptFile ? await uploadReceipt(receiptFile) : null
         await addSale({
           vehicle_id: form.vehicle_id,
@@ -61,10 +59,14 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
         setReceiptFile(null)
         onClose()
         router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao registrar venda. Tente novamente.')
-        submittingRef.current = false
-      }
+      },
+      reason => setError(
+        reason === 'timeout'
+          ? 'Tempo limite atingido. Verifique sua conexão e tente novamente.'
+          : 'Conexão interrompida. Toque em Salvar novamente.'
+      )
+    ).catch(err => {
+      setError(err instanceof Error ? err.message : 'Erro ao registrar venda. Tente novamente.')
     })
   }
 
@@ -132,7 +134,7 @@ export function AddSaleSheet({ open, onClose }: { open: boolean; onClose: () => 
           <p className="text-[13px] text-expense text-center">{error}</p>
         )}
 
-        <Button onClick={handleSubmit} loading={pending} className="bg-profit text-white mt-2">
+        <Button onClick={handleSubmit} loading={saving} className="bg-profit text-white mt-2">
           Confirmar Venda
         </Button>
       </div>
