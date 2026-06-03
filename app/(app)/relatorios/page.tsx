@@ -32,10 +32,9 @@ export default async function RelatoriosPage({
 
   const vehiclesWithProfit = await getVehiclesWithProfitBatch(vehicles.slice(0, 10))
 
-  const profitableVehicles = vehiclesWithProfit.filter(v => v.profit !== null && v.profit! > 0)
-  const avgMargin = profitableVehicles.length > 0
-    ? profitableVehicles.reduce((s, v) => s + (v.profit_margin ?? 0), 0) / profitableVehicles.length
-    : 0
+  // Period gross margin: vehicle profits as a % of gross sales, respects date filter
+  const periodVehicleProfit = stats.owned_profit + stats.consignment_profit
+  const avgMargin = stats.gross_sales > 0 ? (periodVehicleProfit / stats.gross_sales) * 100 : 0
 
   return (
     <div className="px-4 pt-12 animate-page-enter">

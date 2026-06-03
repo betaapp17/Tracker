@@ -38,7 +38,13 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
   const sales = saleTxs ?? []
 
   const gross_sales = sales.reduce((s, t) => s + Number(t.amount), 0)
-  const operating_expenses = expenses.reduce((s, t) => s + Number(t.amount), 0)
+  // Only count expenses NOT linked to a specific vehicle as operating overhead.
+  // Vehicle-linked expenses (repairs, prep) are already deducted inside
+  // owned_profit / consignment_profit via vehicleExpenseMap — counting them
+  // here too would subtract them twice from gross_profit.
+  const operating_expenses = expenses
+    .filter(t => !t.vehicle_id)
+    .reduce((s, t) => s + Number(t.amount), 0)
   const cars_sold = sales.length
 
   // Get all expenses ever linked to vehicles sold this month (for per-vehicle profit)
@@ -82,9 +88,9 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
   const gross_profit = (owned_profit + consignment_profit) - operating_expenses
   const avg_profit_per_car = cars_sold > 0 ? (owned_profit + consignment_profit) / cars_sold : 0
 
-  // Expenses by category (operating only)
+  // Expenses by category — same filter: general overhead only, no vehicle-linked costs
   const catMap = new Map<string, { name: string; amount: number; color: string; icon: string }>()
-  for (const t of expenses) {
+  for (const t of expenses.filter(t => !t.vehicle_id)) {
     const key = t.category?.name ?? 'Outros'
     const existing = catMap.get(key)
     if (existing) {
