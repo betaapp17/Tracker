@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
-const TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
+const TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes — keep in sync with INACTIVITY_TIMEOUT_MS in lib/session.ts
 
 export function InactivityGuard() {
   const router = useRouter()
