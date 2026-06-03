@@ -43,10 +43,10 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
         onClick={onClose}
       />
 
-      {/* Sheet — will-change pre-allocates a GPU layer so the slide animation never drops frames */}
+      {/* Sheet — willChange only when open so we don't hold GPU layers for every mounted sheet */}
       <div
         ref={sheetRef}
-        style={{ willChange: 'transform' }}
+        style={{ willChange: open ? 'transform' : 'auto' }}
         className={cn(
           'fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-sheet',
           'transform transition-transform duration-250 ease-out',

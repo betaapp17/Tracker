@@ -21,6 +21,10 @@ interface Props {
 
 export function TransactionItem({ tx, showCategory = true }: Props) {
   const [editing, setEditing] = useState(false)
+  // Lazy-mount: only insert the sheet into the DOM after the first tap.
+  // Without this, 100 transactions = 100 BottomSheet instances each with
+  // willChange:transform pre-allocating a GPU layer → iOS kills the process on scroll.
+  const [sheetMounted, setSheetMounted] = useState(false)
   const config = typeConfig[tx.type] ?? typeConfig.expense
   const { label, sign, color, bgColor, Icon } = config
 
@@ -64,7 +68,7 @@ export function TransactionItem({ tx, showCategory = true }: Props) {
         </div>
 
         <button
-          onClick={() => setEditing(true)}
+          onClick={() => { setSheetMounted(true); setEditing(true) }}
           className="w-8 h-8 rounded-full bg-ios-fill flex items-center justify-center pressable flex-shrink-0"
           aria-label="Editar transação"
         >
@@ -72,11 +76,13 @@ export function TransactionItem({ tx, showCategory = true }: Props) {
         </button>
       </div>
 
-      <EditTransactionSheet
-        transaction={tx}
-        open={editing}
-        onClose={() => setEditing(false)}
-      />
+      {sheetMounted && (
+        <EditTransactionSheet
+          transaction={tx}
+          open={editing}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </>
   )
 }
