@@ -2,12 +2,15 @@ import { Suspense } from 'react'
 import { requireAuth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getDashboardStats } from '@/lib/actions/dashboard'
+import { getIntegrityChecks } from '@/lib/actions/integrity'
 import { getVehicles, getVehiclesWithProfitBatch } from '@/lib/actions/vehicles'
 import { formatBRL } from '@/lib/formatters'
 import { parseDateRange } from '@/lib/dateRange'
 import { Card } from '@/components/ui/Card'
 import { MonthlyTrend } from '@/components/home/MonthlyTrend'
 import { SpendingByCategory } from '@/components/home/SpendingByCategory'
+import { ReconciliationCard } from '@/components/home/ReconciliationCard'
+import { IntegrityCard } from '@/components/home/IntegrityCard'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { TrendingUp, TrendingDown, Car, DollarSign } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,9 +27,10 @@ export default async function RelatoriosPage({
   const params = await searchParams
   const dateRange = parseDateRange(params)
 
-  const [stats, vehicles] = await Promise.all([
+  const [stats, vehicles, integrityIssues] = await Promise.all([
     getDashboardStats(dateRange.from, dateRange.to),
     getVehicles('sold'),
+    getIntegrityChecks(),
   ])
   if (!stats) redirect('/inicio')
 
@@ -37,7 +41,7 @@ export default async function RelatoriosPage({
   const avgMargin = stats.gross_sales > 0 ? (periodVehicleProfit / stats.gross_sales) * 100 : 0
 
   return (
-    <div className="px-4 pt-12 animate-page-enter">
+    <div className="px-4 pt-12 pb-8 animate-page-enter">
       <div className="mb-5">
         <h1 className="text-[28px] font-bold text-ios-primary">Relatórios</h1>
         <p className="text-[14px] text-ios-secondary capitalize">{dateRange.label}</p>
@@ -60,7 +64,7 @@ export default async function RelatoriosPage({
             bg: 'bg-green-50',
           },
           {
-            label: 'Despesas Operacionais',
+            label: 'Despesas Gerais',
             value: formatBRL(stats.operating_expenses),
             icon: TrendingDown,
             color: 'text-expense',
@@ -74,7 +78,7 @@ export default async function RelatoriosPage({
             bg: 'bg-gray-100',
           },
           {
-            label: 'Margem Média',
+            label: 'Margem Bruta',
             value: `${avgMargin.toFixed(1)}%`,
             icon: DollarSign,
             color: 'text-taquinho',
@@ -110,6 +114,11 @@ export default async function RelatoriosPage({
         <div className="text-[28px]">
           {stats.gross_profit >= 0 ? '🟢' : '🔴'}
         </div>
+      </div>
+
+      {/* Reconciliation waterfall */}
+      <div className="mb-4">
+        <ReconciliationCard stats={stats} />
       </div>
 
       {/* Spending by category */}
@@ -163,7 +172,12 @@ export default async function RelatoriosPage({
       )}
 
       {/* Monthly trend — always shows last 6 months for context */}
-      <MonthlyTrend data={stats.monthly_trend} />
+      <div className="mb-4">
+        <MonthlyTrend data={stats.monthly_trend} />
+      </div>
+
+      {/* Data integrity checks */}
+      <IntegrityCard issues={integrityIssues} />
     </div>
   )
 }

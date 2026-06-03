@@ -76,6 +76,18 @@ export interface DashboardStats {
   avg_profit_per_car: number
   expenses_by_category: Array<{ name: string; amount: number; color: string; icon: string }>
   monthly_trend: Array<{ month: string; sales: number; expenses: number; profit: number }>
+  // Reconciliation waterfall
+  acquisition_cost: number         // purchase prices (owned) + owner payouts (consigned) for sold vehicles
+  vehicle_expenses_in_cogs: number // dealer expenses linked to sold vehicles
+  total_commissions: number        // commissions earned on consigned vehicles
+}
+
+export interface IntegrityIssue {
+  type: 'sold_no_transaction' | 'transaction_no_vehicle' | 'zero_price' | 'count_mismatch'
+  label: string
+  detail: string
+  severity: 'warning' | 'error'
+  count: number
 }
 
 export interface InventoryStats {

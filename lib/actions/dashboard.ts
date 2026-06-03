@@ -68,18 +68,25 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
 
   let consignment_profit = 0
   let owned_profit = 0
+  let acquisition_cost = 0
+  let vehicle_expenses_in_cogs = 0
+  let total_commissions = 0
 
   for (const sale of sales) {
     const vehicle = Array.isArray(sale.vehicle) ? sale.vehicle[0] : sale.vehicle
     if (!vehicle) continue
     const saleAmount = Number(sale.amount)
     const linkedExp = sale.vehicle_id ? (vehicleExpenseMap.get(sale.vehicle_id) ?? 0) : 0
+    vehicle_expenses_in_cogs += linkedExp
 
     if (vehicle.inventory_type === 'consigned') {
       const payout = Number(vehicle.owner_payout_amount ?? 0)
       const commission = payout * Number((vehicle as { commission_rate?: number }).commission_rate ?? 0)
+      acquisition_cost += payout
+      total_commissions += commission
       consignment_profit += saleAmount - payout - linkedExp + commission
     } else {
+      acquisition_cost += Number(vehicle.purchase_price)
       owned_profit += saleAmount - Number(vehicle.purchase_price) - linkedExp
     }
   }
@@ -118,6 +125,9 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
     avg_profit_per_car,
     expenses_by_category: Array.from(catMap.values()).sort((a, b) => b.amount - a.amount),
     monthly_trend,
+    acquisition_cost,
+    vehicle_expenses_in_cogs,
+    total_commissions,
   }
 }
 
