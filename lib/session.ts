@@ -12,7 +12,7 @@ export interface SessionData {
   lastActivity?: number  // unix ms timestamp, updated on every request
 }
 
-export const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
+export const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
 
 export const sessionOptions = {
   password: process.env.SESSION_PASSWORD!,

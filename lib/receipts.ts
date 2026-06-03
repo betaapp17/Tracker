@@ -1,14 +1,12 @@
-'use client'
+'use server'
 
-import { createClient } from '@/lib/supabase/client'
-import { DEMO_USER_ID } from '@/lib/demo'
+import { createServiceClient, getOwnerUserId } from '@/lib/supabase/service'
 
 const RECEIPTS_BUCKET = 'receipts'
 
 export async function uploadReceipt(file: File): Promise<string> {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const userId = user?.id ?? DEMO_USER_ID
+  const supabase = createServiceClient()
+  const userId = getOwnerUserId()
   const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
   const path = `${userId}/${Date.now()}-${crypto.randomUUID()}.${extension}`
 
