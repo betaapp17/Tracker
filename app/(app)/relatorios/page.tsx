@@ -143,13 +143,11 @@ export default async function RelatoriosPage({
 
       {/* Spending by category */}
       <div className="mb-4">
-        <Suspense fallback={null}>
-          <SpendingByCategory
-            categories={stats.expenses_by_category}
-            total={stats.operating_expenses}
-            drillDown
-          />
-        </Suspense>
+        <SpendingByCategory
+          categories={stats.expenses_by_category}
+          total={stats.operating_expenses}
+          drillDownBase={`/relatorios?range=${dateRange.preset}${dateRange.preset === 'custom' ? `&from=${dateRange.from}&to=${dateRange.to}` : ''}`}
+        />
       </div>
 
       {/* Category drilldown */}

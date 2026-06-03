@@ -75,9 +75,7 @@ async function DashboardContent() {
           ownedProfit={stats.owned_profit}
         />
       )}
-      <Suspense fallback={null}>
-        <SpendingByCategory categories={stats.expenses_by_category} total={stats.operating_expenses} />
-      </Suspense>
+      <SpendingByCategory categories={stats.expenses_by_category} total={stats.operating_expenses} />
       <RecentTransactions transactions={recentTxs as never} />
       <VehicleProfitCard vehicles={vehicleProfit} />
       <MonthlyTrend data={stats.monthly_trend} />
