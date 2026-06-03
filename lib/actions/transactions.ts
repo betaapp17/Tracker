@@ -294,6 +294,7 @@ export async function getTransactions(filters?: {
   from?: string
   to?: string
   vehicle_id?: string
+  category_id?: string | null
   limit?: number
   offset?: number
 }) {
@@ -313,6 +314,13 @@ export async function getTransactions(filters?: {
   if (filters?.vehicle_id) query = query.eq('vehicle_id', filters.vehicle_id)
   if (filters?.from) query = query.gte('date', filters.from)
   if (filters?.to) query = query.lte('date', filters.to)
+  if (filters?.category_id !== undefined) {
+    if (filters.category_id === null) {
+      query = query.is('category_id', null)
+    } else {
+      query = query.eq('category_id', filters.category_id)
+    }
+  }
   if (filters?.limit) query = query.limit(filters.limit)
   if (filters?.offset) query = query.range(filters.offset, (filters.offset + (filters.limit ?? 20)) - 1)
 

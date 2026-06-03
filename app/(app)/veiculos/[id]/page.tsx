@@ -7,6 +7,7 @@ import { formatBRL, formatDateFull, daysInStock, formatDaysInStock } from '@/lib
 import { Card } from '@/components/ui/Card'
 import { TransactionItem } from '@/components/transactions/TransactionItem'
 import { EditVehicleButton } from '@/components/vehicles/EditVehicleButton'
+import { ContractUpload } from '@/components/vehicles/ContractUpload'
 import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -201,6 +202,10 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
                 <img src={vehicle.receipt_url} alt="Comprovante do veículo" className="h-40 w-full object-cover" />
               </a>
             </div>
+          )}
+
+          {hasSale && (
+            <ContractUpload vehicleId={vehicle.id} contractUrl={vehicle.contract_url} />
           )}
         </div>
       </Card>

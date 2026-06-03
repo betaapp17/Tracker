@@ -4,6 +4,7 @@ import { getTransactions } from '@/lib/actions/transactions'
 import { TransactionItem } from '@/components/transactions/TransactionItem'
 import { Card } from '@/components/ui/Card'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
+import { TypeFilter } from '@/components/ui/TypeFilter'
 import { parseDateRange } from '@/lib/dateRange'
 
 export const dynamic = 'force-dynamic'
@@ -48,9 +49,15 @@ export default async function TransacoesPage({
         <p className="text-[14px] text-ios-secondary capitalize">{dateRange.label}</p>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-3">
         <Suspense fallback={null}>
           <DateRangeFilter preset={dateRange.preset} from={dateRange.from} to={dateRange.to} />
+        </Suspense>
+      </div>
+
+      <div className="mb-4">
+        <Suspense fallback={null}>
+          <TypeFilter current={params.type} />
         </Suspense>
       </div>
 

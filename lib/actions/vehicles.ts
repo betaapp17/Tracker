@@ -305,6 +305,21 @@ export async function updateVehicle(input: UpdateVehicleInput) {
   revalidatePath('/veiculos')
 }
 
+export async function updateVehicleContract(id: string, contract_url: string | null) {
+  const supabase = createServiceClient()
+  const user = await getCurrentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { error } = await supabase
+    .from('vehicles')
+    .update({ contract_url, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) throw new Error(error.message)
+  revalidatePath(`/veiculos/${id}`)
+}
+
 export async function deleteVehicle(id: string) {
   const supabase = createServiceClient()
   const user = await getCurrentUser()

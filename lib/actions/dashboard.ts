@@ -96,7 +96,7 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
   const avg_profit_per_car = cars_sold > 0 ? (owned_profit + consignment_profit) / cars_sold : 0
 
   // Expenses by category — same filter: general overhead only, no vehicle-linked costs
-  const catMap = new Map<string, { name: string; amount: number; color: string; icon: string }>()
+  const catMap = new Map<string, { name: string; category_id: string | null; amount: number; color: string; icon: string }>()
   for (const t of expenses.filter(t => !t.vehicle_id)) {
     const key = t.category?.name ?? 'Outros'
     const existing = catMap.get(key)
@@ -105,6 +105,7 @@ export async function getDashboardStats(from: string, to: string): Promise<Dashb
     } else {
       catMap.set(key, {
         name: key,
+        category_id: t.category?.id ?? null,
         amount: Number(t.amount),
         color: t.category?.color ?? '#8E8E93',
         icon: t.category?.icon ?? 'tag',

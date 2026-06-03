@@ -31,6 +31,7 @@ export interface Vehicle {
   status: VehicleStatus
   notes: string | null
   receipt_url: string | null
+  contract_url: string | null
   created_at: string
   updated_at: string
 }
@@ -74,7 +75,7 @@ export interface DashboardStats {
   consignment_profit: number
   owned_profit: number
   avg_profit_per_car: number
-  expenses_by_category: Array<{ name: string; amount: number; color: string; icon: string }>
+  expenses_by_category: Array<{ name: string; category_id: string | null; amount: number; color: string; icon: string }>
   monthly_trend: Array<{ month: string; sales: number; expenses: number; profit: number }>
   // Reconciliation waterfall
   acquisition_cost: number         // purchase prices (owned) + owner payouts (consigned) for sold vehicles

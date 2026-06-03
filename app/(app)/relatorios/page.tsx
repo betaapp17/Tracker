@@ -1,9 +1,11 @@
 import { Suspense } from 'react'
 import { requireAuth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getDashboardStats } from '@/lib/actions/dashboard'
 import { getIntegrityChecks } from '@/lib/actions/integrity'
 import { getVehicles, getVehiclesWithProfitBatch } from '@/lib/actions/vehicles'
+import { getTransactions } from '@/lib/actions/transactions'
 import { formatBRL } from '@/lib/formatters'
 import { parseDateRange } from '@/lib/dateRange'
 import { Card } from '@/components/ui/Card'
@@ -12,7 +14,8 @@ import { SpendingByCategory } from '@/components/home/SpendingByCategory'
 import { ReconciliationCard } from '@/components/home/ReconciliationCard'
 import { IntegrityCard } from '@/components/home/IntegrityCard'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
-import { TrendingUp, TrendingDown, Car, DollarSign } from 'lucide-react'
+import { TransactionItem } from '@/components/transactions/TransactionItem'
+import { TrendingUp, TrendingDown, Car, DollarSign, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -20,12 +23,15 @@ export const dynamic = 'force-dynamic'
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; from?: string; to?: string }>
+  searchParams: Promise<{ range?: string; from?: string; to?: string; cat_id?: string; cat_name?: string }>
 }) {
   const user = await requireAuth()
   if (user.role !== 'owner') redirect('/inicio')
   const params = await searchParams
   const dateRange = parseDateRange(params)
+
+  const catId = params.cat_id
+  const catName = params.cat_name
 
   const [stats, vehicles, integrityIssues] = await Promise.all([
     getDashboardStats(dateRange.from, dateRange.to),
@@ -33,6 +39,20 @@ export default async function RelatoriosPage({
     getIntegrityChecks(),
   ])
   if (!stats) redirect('/inicio')
+
+  // Fetch category transactions when drilling into a category
+  let categoryTransactions: Awaited<ReturnType<typeof getTransactions>>['data'] = []
+  if (catId) {
+    const resolvedCategoryId = catId === '__none__' ? null : catId
+    const { data } = await getTransactions({
+      type: 'expense',
+      from: dateRange.from,
+      to: dateRange.to,
+      category_id: resolvedCategoryId,
+      limit: 200,
+    })
+    categoryTransactions = data
+  }
 
   const vehiclesWithProfit = await getVehiclesWithProfitBatch(vehicles.slice(0, 10))
 
@@ -123,11 +143,50 @@ export default async function RelatoriosPage({
 
       {/* Spending by category */}
       <div className="mb-4">
-        <SpendingByCategory
-          categories={stats.expenses_by_category}
-          total={stats.operating_expenses}
-        />
+        <Suspense fallback={null}>
+          <SpendingByCategory
+            categories={stats.expenses_by_category}
+            total={stats.operating_expenses}
+            drillDown
+          />
+        </Suspense>
       </div>
+
+      {/* Category drilldown */}
+      {catId && catName && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Link
+              href={`/relatorios?range=${dateRange.preset}${dateRange.preset === 'custom' ? `&from=${dateRange.from}&to=${dateRange.to}` : ''}`}
+              className="flex items-center gap-1 text-[13px] text-ios-secondary pressable"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Categorias
+            </Link>
+            <span className="text-ios-tertiary text-[13px]">/</span>
+            <span className="text-[13px] font-semibold text-ios-primary">{catName}</span>
+          </div>
+
+          {categoryTransactions.length === 0 ? (
+            <Card>
+              <p className="text-[13px] text-ios-secondary text-center py-4">
+                Nenhuma despesa nesta categoria no período.
+              </p>
+            </Card>
+          ) : (
+            <Card padding="none">
+              <p className="text-[13px] font-semibold text-ios-primary px-4 pt-4 pb-2">
+                {catName} · {categoryTransactions.length} lançamento{categoryTransactions.length !== 1 ? 's' : ''}
+              </p>
+              <div className="px-4 pb-2 divide-y divide-ios-border/50">
+                {categoryTransactions.map(tx => (
+                  <TransactionItem key={tx.id} tx={tx as never} showCategory={false} />
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Vehicle profit table */}
       {vehiclesWithProfit.length > 0 && (
