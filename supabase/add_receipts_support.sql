@@ -10,7 +10,7 @@ VALUES (
   'receipts',
   true,
   10485760,
-  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+  ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif']
 )
 ON CONFLICT (id) DO UPDATE
 SET

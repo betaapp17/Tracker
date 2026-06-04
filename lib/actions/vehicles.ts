@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth'
 import { can } from '@/lib/permissions'
+import { deleteReceiptByPublicUrl } from '@/lib/receipts'
 import type { InventoryType, VehicleStatus, VehicleWithProfit, InventoryStats } from '@/lib/types'
 
 export interface UpdateVehicleInput {
@@ -310,14 +311,36 @@ export async function updateVehicleContract(id: string, contract_url: string | n
   const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
+  const { data: vehicle, error: lookupError } = await supabase
+    .from('vehicles')
+    .select('contract_url')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (lookupError) throw new Error(lookupError.message)
+
+  const previousContractUrl = vehicle.contract_url
+
   const { error } = await supabase
     .from('vehicles')
     .update({ contract_url, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('user_id', user.id)
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (contract_url && contract_url !== previousContractUrl) {
+      await deleteReceiptByPublicUrl(contract_url).catch(console.error)
+    }
+    throw new Error(error.message)
+  }
+
+  if (previousContractUrl && previousContractUrl !== contract_url) {
+    await deleteReceiptByPublicUrl(previousContractUrl).catch(console.error)
+  }
+
   revalidatePath(`/veiculos/${id}`)
+  revalidatePath('/veiculos')
 }
 
 export async function deleteVehicle(id: string) {
