@@ -3,8 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileText, X, Eye, RefreshCw, Image } from 'lucide-react'
-import { uploadReceipt } from '@/lib/receipts'
-import { updateVehicleContract } from '@/lib/actions/vehicles'
 
 const ACCEPTED_DOCUMENT_TYPES = '.pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif,application/pdf,image/*'
 
@@ -20,15 +18,39 @@ export function ContractUpload({ vehicleId, contractUrl }: Props) {
   const [removing, setRemoving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  async function readApiError(response: Response, fallback: string) {
+    try {
+      const body = await response.json()
+      return typeof body.error === 'string' ? body.error : fallback
+    } catch {
+      return fallback
+    }
+  }
+
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
     setError(null)
     try {
-      const uploaded = await uploadReceipt(file)
-      await updateVehicleContract(vehicleId, uploaded)
-      setUrl(uploaded)
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch(`/api/vehicles/${encodeURIComponent(vehicleId)}/contract`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Erro ao enviar. Tente novamente.'))
+      }
+
+      const body = await response.json()
+      if (typeof body.contractUrl !== 'string') {
+        throw new Error('Resposta inválida ao anexar documento.')
+      }
+
+      setUrl(body.contractUrl)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao enviar. Tente novamente.')
@@ -44,7 +66,14 @@ export function ContractUpload({ vehicleId, contractUrl }: Props) {
     setRemoving(true)
     setError(null)
     try {
-      await updateVehicleContract(vehicleId, null)
+      const response = await fetch(`/api/vehicles/${encodeURIComponent(vehicleId)}/contract`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Erro ao remover.'))
+      }
+
       setUrl(null)
       router.refresh()
     } catch (err) {
