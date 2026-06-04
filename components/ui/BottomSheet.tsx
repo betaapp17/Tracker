@@ -15,7 +15,7 @@ interface BottomSheetProps {
 export function BottomSheet({ open, onClose, title, children, className }: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null)
 
-  // Close on backdrop tap
+  // Close on backdrops tap
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden'
