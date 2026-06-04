@@ -41,6 +41,42 @@ export async function getVehicles(status?: VehicleStatus) {
   return data ?? []
 }
 
+export async function getVehiclesForList() {
+  const vehicles = await getVehicles()
+  if (vehicles.length === 0) return vehicles
+
+  const supabase = createServiceClient()
+  const user = await getCurrentUser()
+  if (!user) return vehicles
+
+  const vehicleIds = vehicles.map(v => v.id)
+  const { data: sales } = await supabase
+    .from('transactions')
+    .select('vehicle_id, notes, description')
+    .eq('user_id', user.id)
+    .eq('type', 'sale')
+    .in('vehicle_id', vehicleIds)
+
+  const salesTextByVehicle = new Map<string, string[]>()
+  for (const sale of sales ?? []) {
+    if (!sale.vehicle_id) continue
+
+    const values = [sale.notes, sale.description].filter(Boolean) as string[]
+    if (values.length === 0) continue
+
+    const existing = salesTextByVehicle.get(sale.vehicle_id) ?? []
+    salesTextByVehicle.set(sale.vehicle_id, existing.concat(values))
+  }
+
+  return vehicles.map(vehicle => ({
+    ...vehicle,
+    search_text: [
+      vehicle.notes,
+      ...(salesTextByVehicle.get(vehicle.id) ?? []),
+    ].filter(Boolean).join(' '),
+  }))
+}
+
 export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfit | null> {
   const supabase = createServiceClient()
   const user = await getCurrentUser()

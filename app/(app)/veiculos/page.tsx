@@ -1,5 +1,5 @@
 import { requireAuth } from '@/lib/auth'
-import { getVehicles, getInventoryStats } from '@/lib/actions/vehicles'
+import { getVehiclesForList, getInventoryStats } from '@/lib/actions/vehicles'
 import { VehiclesContent } from '@/components/vehicles/VehiclesContent'
 import { Card } from '@/components/ui/Card'
 import { Car } from 'lucide-react'
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function VeiculosPage() {
   await requireAuth()
-  const [vehicles, stats] = await Promise.all([getVehicles(), getInventoryStats()])
+  const [vehicles, stats] = await Promise.all([getVehiclesForList(), getInventoryStats()])
 
   const inStockCount = vehicles.filter(v => v.status === 'in_stock').length
   const soldCount    = vehicles.filter(v => v.status === 'sold').length

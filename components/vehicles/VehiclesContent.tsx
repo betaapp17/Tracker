@@ -37,6 +37,36 @@ function getPrice(v: Vehicle): number {
     : v.purchase_price
 }
 
+function normalizeSearch(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function compactSearch(value: unknown): string {
+  return normalizeSearch(value).replace(/\s/g, '')
+}
+
+function vehicleSearchText(v: Vehicle): string {
+  const price = getPrice(v)
+  return normalizeSearch([
+    v.make,
+    v.model,
+    v.year,
+    v.plate,
+    v.notes,
+    v.search_text,
+    v.status === 'in_stock' ? 'em estoque estoque disponivel' : '',
+    v.status === 'sold' ? 'vendido venda comprador' : '',
+    v.inventory_type === 'consigned' ? 'consignado consignacao dono proprietario' : 'proprio loja',
+    price,
+    formatBRL(price),
+  ].filter(Boolean).join(' '))
+}
+
 interface Props {
   vehicles: Vehicle[]
   stats: InventoryStats
@@ -52,13 +82,17 @@ export function VehiclesContent({ vehicles, stats }: Props) {
     let result = [...vehicles]
 
     if (search.trim()) {
-      const q = search.toLowerCase().trim().replace(/-/g, '')
-      result = result.filter(v =>
-        v.make.toLowerCase().includes(q) ||
-        v.model.toLowerCase().includes(q) ||
-        String(v.year).includes(q) ||
-        (v.plate?.toLowerCase().replace(/-/g, '').includes(q) ?? false)
-      )
+      const query = normalizeSearch(search)
+      const queryTerms = query.split(/\s+/).filter(Boolean)
+      const compactQuery = compactSearch(search)
+
+      result = result.filter(v => {
+        const searchable = vehicleSearchText(v)
+        const compactSearchable = searchable.replace(/\s/g, '')
+
+        return queryTerms.every(term => searchable.includes(term)) ||
+          (compactQuery !== '' && compactSearchable.includes(compactQuery))
+      })
     }
 
     if (statusFilter !== 'all') {
@@ -95,7 +129,7 @@ export function VehiclesContent({ vehicles, stats }: Props) {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ios-tertiary pointer-events-none" />
         <input
           type="text"
-          placeholder="Buscar marca, modelo, placa, ano..."
+          placeholder="Buscar carro, placa, dono, comprador..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full pl-9 pr-9 py-2.5 bg-ios-fill rounded-xl text-[14px] text-ios-primary placeholder:text-ios-tertiary border border-ios-border focus:outline-none focus:ring-2 focus:ring-ios-primary/20"
@@ -109,6 +143,12 @@ export function VehiclesContent({ vehicles, stats }: Props) {
           </button>
         )}
       </div>
+
+      {search.trim() && (
+        <p className="mb-3 text-[12px] text-ios-tertiary">
+          {filtered.length} {filtered.length === 1 ? 'resultado' : 'resultados'} para "{search.trim()}"
+        </p>
+      )}
 
       {/* Filter + sort row */}
       <div className="flex items-center gap-2 mb-4 overflow-x-auto scrollbar-none pb-0.5">
