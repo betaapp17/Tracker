@@ -33,6 +33,11 @@ export async function addDeal(input: AddDealInput) {
   if (!sold?.length) throw new Error('Veículo já foi vendido ou não encontrado.')
 
   let incomingVehicleId: string | null = null
+  let dealId: string | null = null
+  let saleTransactionId: string | null = null
+  let purchaseTransactionId: string | null = null
+  let adjustmentTransactionId: string | null = null
+
   try {
     if (input.trade_in) {
       const { data: incoming, error } = await supabase.from('vehicles').insert({
@@ -45,37 +50,46 @@ export async function addDeal(input: AddDealInput) {
     }
 
     const dealType = input.trade_in ? (cashReceived === 0 && cashPaid === 0 ? 'exchange' : 'trade_in') : 'cash_sale'
-    const { error: dealErr } = await supabase.from('vehicle_deals').insert({
+    const { data: deal, error: dealErr } = await supabase.from('vehicle_deals').insert({
       user_id: user.id, outgoing_vehicle_id: input.outgoing_vehicle_id, incoming_vehicle_id: incomingVehicleId,
       deal_type: dealType, sale_price: input.sale_price, trade_in_value: tradeValue, cash_received: cashReceived,
       cash_paid: cashPaid, payment_method: (cashReceived > 0 || cashPaid > 0) ? input.payment_method : null,
       date: input.date, notes: input.notes.trim() || null, receipt_url: input.receipt_url,
-    })
+    }).select('id').single()
     if (dealErr) throw dealErr
+    dealId = deal.id
 
-    const { error: saleErr } = await supabase.from('transactions').insert({
+    const { data: saleTx, error: saleErr } = await supabase.from('transactions').insert({
       user_id: user.id, type: 'sale', amount: input.sale_price, vehicle_id: input.outgoing_vehicle_id,
       date: input.date, payment_method: input.payment_method, notes: input.notes.trim() || null,
       description: input.trade_in ? 'Venda de veículo com troca' : 'Venda de veículo', receipt_url: input.receipt_url,
-    })
+    }).select('id').single()
     if (saleErr) throw saleErr
+    saleTransactionId = saleTx.id
 
     if (incomingVehicleId && tradeValue > 0) {
-      const { error: purchaseErr } = await supabase.from('transactions').insert({
+      const { data: purchaseTx, error: purchaseErr } = await supabase.from('transactions').insert({
         user_id: user.id, type: 'vehicle_purchase', amount: tradeValue, vehicle_id: incomingVehicleId,
         date: input.date, description: `Veículo recebido em troca: ${input.trade_in!.year} ${input.trade_in!.make} ${input.trade_in!.model}`,
         notes: `Aquisição vinculada à venda ${input.outgoing_vehicle_id}`,
-      })
+      }).select('id').single()
       if (purchaseErr) throw purchaseErr
+      purchaseTransactionId = purchaseTx.id
     }
+
     if (cashPaid > 0) {
-      const { error: adjustmentErr } = await supabase.from('transactions').insert({
+      const { data: adjustmentTx, error: adjustmentErr } = await supabase.from('transactions').insert({
         user_id: user.id, type: 'adjustment', amount: cashPaid, vehicle_id: input.outgoing_vehicle_id,
         date: input.date, payment_method: input.payment_method, description: 'Troco pago ao cliente em troca de veículo', notes: input.notes.trim() || null,
-      })
+      }).select('id').single()
       if (adjustmentErr) throw adjustmentErr
+      adjustmentTransactionId = adjustmentTx.id
     }
   } catch (error) {
+    if (adjustmentTransactionId) await supabase.from('transactions').delete().eq('id', adjustmentTransactionId).eq('user_id', user.id)
+    if (purchaseTransactionId) await supabase.from('transactions').delete().eq('id', purchaseTransactionId).eq('user_id', user.id)
+    if (saleTransactionId) await supabase.from('transactions').delete().eq('id', saleTransactionId).eq('user_id', user.id)
+    if (dealId) await supabase.from('vehicle_deals').delete().eq('id', dealId).eq('user_id', user.id)
     if (incomingVehicleId) await supabase.from('vehicles').delete().eq('id', incomingVehicleId).eq('user_id', user.id)
     await supabase.from('vehicles').update({ status: 'in_stock', updated_at: new Date().toISOString() }).eq('id', input.outgoing_vehicle_id).eq('user_id', user.id)
     throw new Error(error instanceof Error ? error.message : 'Erro ao registrar negociação.')
