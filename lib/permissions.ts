@@ -1,4 +1,4 @@
-import type { UserRole } from './session'
+export type UserRole = 'owner' | 'employee'
 
 export const PERMISSION_KEYS = [
   'view_dashboard', 'view_financials', 'view_vehicles', 'add_vehicles', 'edit_vehicles',
