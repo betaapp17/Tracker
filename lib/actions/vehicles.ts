@@ -5,7 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth'
 import { can } from '@/lib/permissions'
 import { deleteReceiptByPublicUrl } from '@/lib/receipts'
-import type { InventoryType, VehicleStatus, VehicleWithProfit, InventoryStats } from '@/lib/types'
+import type { InventoryType, VehicleStatus, VehicleWithProfit, InventoryStats, Transaction } from '@/lib/types'
 
 export interface UpdateVehicleInput {
   id: string
@@ -56,7 +56,20 @@ export async function getVehiclesForList() {
   return vehicles.map(vehicle => ({ ...vehicle, search_text: [vehicle.notes, ...(salesTextByVehicle.get(vehicle.id) ?? [])].filter(Boolean).join(' ') }))
 }
 
-function computeVehicleProfit(vehicle: any, transactions: any[]): Omit<VehicleWithProfit, keyof typeof vehicle | 'transactions'> & { transactions: any[] } {
+type VehicleProfitComputation = Pick<
+  VehicleWithProfit,
+  | 'sale_price'
+  | 'linked_expenses'
+  | 'owner_prep_expenses'
+  | 'trade_adjustments'
+  | 'commission'
+  | 'total_cost'
+  | 'profit'
+  | 'profit_margin'
+  | 'transactions'
+>
+
+function computeVehicleProfit(vehicle: { inventory_type?: InventoryType | null; owner_payout_amount?: number | null; purchase_price?: number | null; commission_rate?: number | null }, transactions: Transaction[]): VehicleProfitComputation {
   const sale = transactions.find(t => t.type === 'sale')
   const sale_price = sale ? Number(sale.amount) : null
   const expenseTxs = transactions.filter(t => t.type === 'expense')
@@ -66,7 +79,7 @@ function computeVehicleProfit(vehicle: any, transactions: any[]): Omit<VehicleWi
   const trade_adjustments = transactions.filter(t => t.type === 'adjustment').reduce((s, t) => s + Number(t.amount), 0)
 
   const isConsigned = vehicle.inventory_type === 'consigned'
-  const costBasis = isConsigned ? Number(vehicle.owner_payout_amount ?? 0) : Number(vehicle.purchase_price)
+  const costBasis = isConsigned ? Number(vehicle.owner_payout_amount ?? 0) : Number(vehicle.purchase_price ?? 0)
   const commission = isConsigned ? Number(vehicle.owner_payout_amount ?? 0) * Number(vehicle.commission_rate ?? 0) : 0
 
   const total_cost = costBasis + dealer_expenses + trade_adjustments
@@ -85,7 +98,7 @@ export async function getVehicleWithProfit(id: string): Promise<VehicleWithProfi
   if (!vehicle) return null
 
   const { data: txs } = await supabase.from('transactions').select('*, category:transaction_categories(*)').eq('vehicle_id', id).eq('user_id', user.id).order('date', { ascending: false })
-  const computed = computeVehicleProfit(vehicle, txs ?? [])
+  const computed = computeVehicleProfit(vehicle, (txs ?? []) as Transaction[])
   return { ...vehicle, inventory_type: vehicle.inventory_type ?? 'owned', ...computed }
 }
 
@@ -151,7 +164,7 @@ export async function getVehiclesWithProfitBatch(vehicles: Awaited<ReturnType<ty
 
   const vehicleIds = vehicles.map(v => v.id)
   const { data: txs } = await supabase.from('transactions').select('*, category:transaction_categories(*)').eq('user_id', user.id).in('vehicle_id', vehicleIds).order('date', { ascending: false })
-  const allTxs = txs ?? []
+  const allTxs = (txs ?? []) as Transaction[]
 
   return vehicles.map(vehicle => ({
     ...vehicle,
