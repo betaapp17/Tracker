@@ -12,21 +12,76 @@ import { VehicleProfitCard } from '@/components/home/VehicleProfitCard'
 import { MonthlyTrend } from '@/components/home/MonthlyTrend'
 import { requireAuth } from '@/lib/auth'
 import { Card } from '@/components/ui/Card'
-import { Car } from 'lucide-react'
-import type { VehicleWithProfit } from '@/lib/types'
+import { AlertTriangle, Car } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
+
+type LoadFailure = {
+  source: string
+  message: string
+}
 
 async function DashboardContent() {
   const user = await requireAuth()
   const month = currentMonthISO()
   const { from, to } = parseDateRange({})
 
-  const [stats, recentTxs, vehicles] = await Promise.all([
+  const results = await Promise.allSettled([
     getDashboardStats(from, to),
     getRecentTransactions(5),
     getVehicles(),
   ])
+
+  const failures: LoadFailure[] = []
+
+  if (results[0].status === 'rejected') {
+    failures.push({
+      source: 'dashboard',
+      message: results[0].reason instanceof Error ? results[0].reason.message : String(results[0].reason),
+    })
+  }
+  if (results[1].status === 'rejected') {
+    failures.push({
+      source: 'transactions',
+      message: results[1].reason instanceof Error ? results[1].reason.message : String(results[1].reason),
+    })
+  }
+  if (results[2].status === 'rejected') {
+    failures.push({
+      source: 'vehicles',
+      message: results[2].reason instanceof Error ? results[2].reason.message : String(results[2].reason),
+    })
+  }
+
+  if (failures.length > 0) {
+    console.error('Dashboard preview load failure', failures)
+
+    return (
+      <div className="px-4 pt-12 animate-page-enter">
+        <Card className="space-y-3 border border-amber-200 bg-amber-50">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-amber-700" />
+            <h1 className="text-[17px] font-bold text-ios-primary">Falha ao carregar o painel</h1>
+          </div>
+          <p className="text-[13px] text-ios-secondary">
+            O login funcionou, mas uma consulta do painel falhou neste ambiente de preview.
+          </p>
+          <div className="space-y-2">
+            {failures.map(failure => (
+              <div key={failure.source} className="rounded-xl bg-white/80 px-3 py-2">
+                <p className="text-[12px] font-semibold text-ios-primary">{failure.source}</p>
+                <p className="text-[11px] text-ios-secondary break-words">{failure.message}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  const stats = results[0].status === 'fulfilled' ? results[0].value : null
+  const recentTxs = results[1].status === 'fulfilled' ? results[1].value : []
+  const vehicles = results[2].status === 'fulfilled' ? results[2].value : []
 
   // Employee view: inventory summary + recent activity only
   if (!stats) {
@@ -38,7 +93,6 @@ async function DashboardContent() {
           <p className="text-[14px] text-ios-secondary">{month}</p>
         </div>
 
-        {/* Inventory summary */}
         <Card className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-ios-fill flex items-center justify-center flex-shrink-0">
             <Car className="w-6 h-6 text-ios-primary" />
@@ -56,8 +110,13 @@ async function DashboardContent() {
     )
   }
 
-  // Owner view: full dashboard
-  const vehicleProfit = await getVehiclesWithProfitBatch(vehicles.slice(0, 6))
+  let vehicleProfit = [] as Awaited<ReturnType<typeof getVehiclesWithProfitBatch>>
+  try {
+    vehicleProfit = await getVehiclesWithProfitBatch(vehicles.slice(0, 6))
+  } catch (error) {
+    console.error('Vehicle profit preview load failure', error)
+  }
+
   const hasVehicleProfit = stats.consignment_profit !== 0 || stats.owned_profit !== 0
 
   return (

@@ -5,24 +5,19 @@ import { getIronSession } from 'iron-session'
 import { sessionOptions } from '@/lib/session'
 import type { SessionData } from '@/lib/session'
 import { createServiceClient } from '@/lib/supabase/service'
+import { DEFAULT_EMPLOYEE_PERMISSIONS, type PermissionSet } from '@/lib/permissions'
 
-// In-memory rate limiter: 5 attempts per IP per 60 seconds.
-// Resets on server restart — acceptable for an internal tool.
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
-
-function checkRateLimit(ip: string): { allowed: boolean; retryAfter?: number } {
+function checkRateLimit(ip: string) {
   const now = Date.now()
   const entry = rateLimitMap.get(ip)
-
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 })
     return { allowed: true }
   }
-
   if (entry.count >= 5) {
     return { allowed: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) }
   }
-
   entry.count++
   return { allowed: true }
 }
@@ -49,29 +44,20 @@ export async function POST(request: NextRequest) {
   }
 
   const { userId, pin } = body
-
-  if (
-    typeof userId !== 'string' ||
-    typeof pin !== 'string' ||
-    pin.length !== 4 ||
-    !/^\d{4}$/.test(pin)
-  ) {
+  if (typeof userId !== 'string' || typeof pin !== 'string' || !/^\d{4}$/.test(pin)) {
     return NextResponse.json({ error: 'Dados inválidos.' }, { status: 400 })
   }
 
   let role: 'owner' | 'employee'
   let name: string
   let resolvedUserId: string
+  let permissions: PermissionSet = {}
 
   if (userId === 'owner') {
     const ownerPinHash = process.env.OWNER_PIN_HASH
     if (!ownerPinHash) {
-      return NextResponse.json(
-        { error: 'Sistema não configurado. Defina OWNER_PIN_HASH no .env.local.' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Sistema não configurado.' }, { status: 500 })
     }
-
     if (!compareSync(pin, ownerPinHash)) {
       return NextResponse.json({ error: 'PIN incorreto.' }, { status: 401 })
     }
@@ -81,16 +67,39 @@ export async function POST(request: NextRequest) {
     resolvedUserId = 'owner'
   } else {
     const supabase = createServiceClient()
-    const { data: employee } = await supabase
+
+    // Prefer the new schema with granular permissions. If the preview database
+    // has not had the migration applied yet, fall back to the legacy columns
+    // so existing employees can still log in and test the preview safely.
+    let employee: {
+      id: string
+      name: string
+      pin_hash: string
+      is_active: boolean
+      permissions?: PermissionSet | null
+    } | null = null
+
+    const withPermissions = await supabase
       .from('app_employees')
-      .select('id, name, pin_hash, is_active')
+      .select('id, name, pin_hash, is_active, permissions')
       .eq('id', userId)
       .single()
+
+    if (!withPermissions.error && withPermissions.data) {
+      employee = withPermissions.data
+    } else {
+      const legacy = await supabase
+        .from('app_employees')
+        .select('id, name, pin_hash, is_active')
+        .eq('id', userId)
+        .single()
+
+      if (!legacy.error && legacy.data) employee = legacy.data
+    }
 
     if (!employee || !employee.is_active) {
       return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 401 })
     }
-
     if (!compareSync(pin, employee.pin_hash)) {
       return NextResponse.json({ error: 'PIN incorreto.' }, { status: 401 })
     }
@@ -98,16 +107,19 @@ export async function POST(request: NextRequest) {
     role = 'employee'
     name = employee.name
     resolvedUserId = employee.id
+    permissions = {
+      ...DEFAULT_EMPLOYEE_PERMISSIONS,
+      ...(employee.permissions ?? {}),
+    }
   }
 
-  // Create session using cookies() from next/headers
   const cookieStore = await cookies()
   const session = await getIronSession<SessionData>(cookieStore, sessionOptions)
-
   session.loggedIn = true
   session.role = role
   session.userId = resolvedUserId
   session.name = name
+  session.permissions = permissions
   session.lastActivity = Date.now()
   await session.save()
 
