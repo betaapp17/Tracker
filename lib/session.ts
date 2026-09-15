@@ -1,18 +1,20 @@
 import { getIronSession } from 'iron-session'
 import type { IronSession } from 'iron-session'
 import { cookies } from 'next/headers'
+import type { PermissionSet } from './permissions'
 
 export type UserRole = 'owner' | 'employee'
 
 export interface SessionData {
   loggedIn: boolean
   role: UserRole
-  userId: string   // 'owner' or employee UUID
+  userId: string
   name: string
-  lastActivity?: number  // unix ms timestamp, updated on every request
+  permissions?: PermissionSet
+  lastActivity?: number
 }
 
-export const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
+export const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
 
 export const sessionOptions = {
   password: process.env.SESSION_PASSWORD!,
@@ -21,7 +23,7 @@ export const sessionOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
-    maxAge: 60 * 60 * 8, // 8 hours
+    maxAge: 60 * 60 * 8,
   },
 }
 
