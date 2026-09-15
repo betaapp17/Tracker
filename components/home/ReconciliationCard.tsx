@@ -6,13 +6,14 @@ import type { DashboardStats } from '@/lib/types'
 
 export function ReconciliationCard({ stats }: { stats: DashboardStats }) {
   const vehicleGrossProfit = stats.owned_profit + stats.consignment_profit
+  const generalExpensesOnly = Math.max(0, stats.operating_expenses - stats.dealer_paid_trade_differences)
 
-  // Cross-check: recompute gross_profit from waterfall and verify it matches
   const waterfallCheck = stats.gross_sales
     - stats.acquisition_cost
     - stats.vehicle_expenses_in_cogs
     + stats.total_commissions
-    - stats.operating_expenses
+    - generalExpensesOnly
+    - stats.dealer_paid_trade_differences
   const isConsistent = Math.abs(waterfallCheck - stats.gross_profit) < 0.01
 
   return (
@@ -53,8 +54,11 @@ export function ReconciliationCard({ stats }: { stats: DashboardStats }) {
           positive={vehicleGrossProfit >= 0}
         />
 
-        {stats.operating_expenses > 0 && (
-          <WaterfallRow label="Despesas Gerais" value={stats.operating_expenses} sign="−" indent />
+        {generalExpensesOnly > 0 && (
+          <WaterfallRow label="Despesas Gerais" value={generalExpensesOnly} sign="−" indent />
+        )}
+        {stats.dealer_paid_trade_differences > 0 && (
+          <WaterfallRow label="Diferença paga em troca" value={stats.dealer_paid_trade_differences} sign="−" indent />
         )}
 
         <Divider />
@@ -96,27 +100,16 @@ function WaterfallRow({
       : 'text-ios-primary'
 
   return (
-    <div className={cn(
-      'flex items-center justify-between py-2',
-      highlight && 'mt-1'
-    )}>
+    <div className={cn('flex items-center justify-between py-2', highlight && 'mt-1')}>
       <div className="flex items-center gap-2 min-w-0">
         <span className={cn('text-[12px] font-mono w-4 text-center flex-shrink-0', positive ? 'text-profit' : 'text-expense')}>
           {sign}
         </span>
-        <span className={cn(
-          'text-[13px] truncate',
-          indent ? 'text-ios-secondary' : 'text-ios-primary',
-          bold && 'font-semibold'
-        )}>
+        <span className={cn('text-[13px] truncate', indent ? 'text-ios-secondary' : 'text-ios-primary', bold && 'font-semibold')}>
           {label}
         </span>
       </div>
-      <span className={cn(
-        'text-[13px] tabular-nums flex-shrink-0 ml-3',
-        bold ? 'font-bold text-[14px]' : 'font-medium',
-        valueColor
-      )}>
+      <span className={cn('text-[13px] tabular-nums flex-shrink-0 ml-3', bold ? 'font-bold text-[14px]' : 'font-medium', valueColor)}>
         {formatBRL(value)}
       </span>
     </div>
