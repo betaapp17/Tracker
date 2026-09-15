@@ -131,33 +131,53 @@ async function getMonthlyTrend(supabase: ReturnType<typeof createServiceClient>,
       .select('type, amount, vehicle_id, is_owner_prep').eq('user_id', userId).in('type', ['expense', 'adjustment']).gte('date', start).lte('date', end)
 
     const sales = (monthSales ?? []).reduce((s, t) => s + Number(t.amount), 0)
-    const generalExpenses = (monthExpenses ?? []).filter(t => t.type === 'expense' && !t.vehicle_id && !t.is_owner_prep).reduce((s, t) => s + Number(t.amount), 0)
-    const adjustments = (monthExpenses ?? []).filter(t => t.type === 'adjustment').reduce((s, t) => s + Number(t.amount), 0)
+    const generalExpenses = (monthExpenses ?? [])
+      .filter(t => t.type === 'expense' && !t.vehicle_id && !t.is_owner_prep)
+      .reduce((s, t) => s + Number(t.amount), 0)
+    const adjustments = (monthExpenses ?? [])
+      .filter(t => t.type === 'adjustment')
+      .reduce((s, t) => s + Number(t.amount), 0)
 
     const vehicleIds = (monthSales ?? []).map(t => t.vehicle_id).filter(Boolean) as string[]
     const vehicleExpenseMap = new Map<string, number>()
     if (vehicleIds.length) {
       const { data: linked } = await supabase.from('transactions')
         .select('vehicle_id, amount').eq('user_id', userId).eq('type', 'expense').eq('is_owner_prep', false).in('vehicle_id', vehicleIds)
-      for (const exp of linked ?? []) if (exp.vehicle_id) vehicleExpenseMap.set(exp.vehicle_id, (vehicleExpenseMap.get(exp.vehicle_id) ?? 0) + Number(exp.amount))
+      for (const exp of linked ?? []) {
+        if (!exp.vehicle_id) continue
+        vehicleExpenseMap.set(exp.vehicle_id, (vehicleExpenseMap.get(exp.vehicle_id) ?? 0) + Number(exp.amount))
+      }
     }
 
     let vehicleProfit = 0
+    let acquisitionCost = 0
+    let linkedVehicleExpenses = 0
+    let commissions = 0
+
     for (const sale of monthSales ?? []) {
       const vehicle = Array.isArray(sale.vehicle) ? sale.vehicle[0] : sale.vehicle
       if (!vehicle) continue
       const linked = sale.vehicle_id ? (vehicleExpenseMap.get(sale.vehicle_id) ?? 0) : 0
+      linkedVehicleExpenses += linked
+
       if (vehicle.inventory_type === 'consigned') {
         const payout = Number(vehicle.owner_payout_amount ?? 0)
         const commission = payout * Number(vehicle.commission_rate ?? 0)
+        acquisitionCost += payout
+        commissions += commission
         vehicleProfit += Number(sale.amount) - payout - linked + commission
       } else {
-        vehicleProfit += Number(sale.amount) - Number(vehicle.purchase_price) - linked
+        const purchasePrice = Number(vehicle.purchase_price)
+        acquisitionCost += purchasePrice
+        vehicleProfit += Number(sale.amount) - purchasePrice - linked
       }
     }
 
-    const expenses = generalExpenses + adjustments
-    const profit = vehicleProfit - expenses
+    // "Gastos" should reflect the costs that actually reduce the monthly result:
+    // acquisition basis + dealer vehicle costs + general overhead + dealer-paid trade differences,
+    // net of commissions earned on consigned vehicles.
+    const expenses = acquisitionCost + linkedVehicleExpenses + generalExpenses + adjustments - commissions
+    const profit = vehicleProfit - generalExpenses - adjustments
     months.push({ month: m, sales, expenses, profit })
   }
 
