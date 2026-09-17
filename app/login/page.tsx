@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Delete, ChevronLeft, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [employees, setEmployees] = useState<AppUser[]>([])
+  const isSubmittingRef = useRef(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -52,7 +53,8 @@ export default function LoginPage() {
   }
 
   const submitPin = async (pinValue: string) => {
-    if (!selectedUser) return
+    if (!selectedUser || isSubmittingRef.current) return
+    isSubmittingRef.current = true
     setLoading(true)
     setError('')
 
@@ -76,7 +78,14 @@ export default function LoginPage() {
       setPin('')
     } finally {
       setLoading(false)
+      isSubmittingRef.current = false
     }
+  }
+
+  const handlePinChange = (value: string) => {
+    const next = value.replace(/\D/g, '').slice(0, 4)
+    setPin(next)
+    if (next) setError('')
   }
 
   const users = [OWNER_USER, ...employees]
@@ -102,6 +111,8 @@ export default function LoginPage() {
             error={error}
             loading={loading}
             onKey={handleKey}
+            onPinChange={handlePinChange}
+            onSubmit={submitPin}
             onBack={() => { setStep('select'); setPin(''); setError('') }}
           />
         )}
@@ -158,6 +169,8 @@ function PinScreen({
   error,
   loading,
   onKey,
+  onPinChange,
+  onSubmit,
   onBack,
 }: {
   user: AppUser
@@ -165,12 +178,20 @@ function PinScreen({
   error: string
   loading: boolean
   onKey: (k: string) => void
+  onPinChange: (value: string) => void
+  onSubmit: (pin: string) => void
   onBack: () => void
 }) {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!loading && pin.length === 4) onSubmit(pin)
+  }
+
   return (
-    <div>
+    <form onSubmit={handleSubmit}>
       {/* Back */}
       <button
+        type="button"
         onClick={onBack}
         className="flex items-center gap-1 text-[13px] text-ios-secondary mb-6 pressable"
       >
@@ -205,6 +226,25 @@ function PinScreen({
         ))}
       </div>
 
+      <div className="max-w-[280px] mx-auto mb-3">
+        <label htmlFor="pin-input" className="block text-[13px] font-medium text-ios-secondary mb-2">
+          PIN de acesso
+        </label>
+        <input
+          id="pin-input"
+          name="pin"
+          type="password"
+          inputMode="numeric"
+          autoComplete="current-password"
+          maxLength={4}
+          value={pin}
+          autoFocus
+          onChange={event => onPinChange(event.target.value)}
+          disabled={loading}
+          className="w-full h-12 rounded-2xl bg-white shadow-card px-4 text-center text-[18px] font-semibold tracking-[0.3em] text-ios-primary outline-none focus:ring-2 focus:ring-ios-primary disabled:opacity-50"
+        />
+      </div>
+
       {/* Error */}
       <div className="h-6 mb-6 flex items-center justify-center">
         {error && (
@@ -220,6 +260,7 @@ function PinScreen({
             return (
               <button
                 key={i}
+                type="button"
                 onClick={() => onKey('del')}
                 disabled={loading || pin.length === 0}
                 className="h-16 rounded-2xl bg-ios-fill flex items-center justify-center pressable disabled:opacity-30"
@@ -231,6 +272,7 @@ function PinScreen({
           return (
             <button
               key={i}
+              type="button"
               onClick={() => onKey(key)}
               disabled={loading || pin.length >= 4}
               className="h-16 rounded-2xl bg-white shadow-card text-[24px] font-semibold text-ios-primary flex items-center justify-center pressable disabled:opacity-50"
@@ -240,6 +282,14 @@ function PinScreen({
           )
         })}
       </div>
-    </div>
+
+      <button
+        type="submit"
+        disabled={loading || pin.length !== 4}
+        className="w-full max-w-[280px] h-14 mt-5 mx-auto block rounded-2xl bg-ios-primary text-taquinho text-[16px] font-semibold shadow-card pressable disabled:opacity-50"
+      >
+        {loading ? 'Entrando...' : 'Entrar'}
+      </button>
+    </form>
   )
 }
