@@ -18,7 +18,16 @@ export default function LoginPage() {
   const [profiles, setProfiles] = useState<AppUser[]>([])
   const [profilesError, setProfilesError] = useState('')
   const isSubmittingRef = useRef(false)
+  const pinInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+
+  const setPinValue = (value: string) => {
+    const next = value.replace(/\D/g, '').slice(0, 4)
+    if (pinInputRef.current) pinInputRef.current.value = next
+    setPin(next)
+    if (next) setError('')
+    return next
+  }
 
   useEffect(() => {
     fetch('/api/auth/users', { cache: 'no-store' })
@@ -33,20 +42,18 @@ export default function LoginPage() {
   const selectUser = (user: AppUser) => {
     setSelectedUser(user)
     setStep('pin')
-    setPin('')
+    setPinValue('')
     setError('')
   }
 
   const handleKey = (key: string) => {
     if (loading) return
     if (key === 'del') {
-      setPin(p => p.slice(0, -1))
+      setPinValue((pinInputRef.current?.value ?? pin).slice(0, -1))
       setError('')
       return
     }
-    if (pin.length >= 4) return
-    const next = pin + key
-    setPin(next)
+    const next = setPinValue((pinInputRef.current?.value ?? pin) + key)
     if (next.length === 4) submitPin(next)
   }
 
@@ -69,11 +76,11 @@ export default function LoginPage() {
         router.refresh()
       } else {
         setError(data.error ?? 'PIN incorreto.')
-        setPin('')
+        setPinValue('')
       }
     } catch {
       setError('Erro de conexão. Tente novamente.')
-      setPin('')
+      setPinValue('')
     } finally {
       setLoading(false)
       isSubmittingRef.current = false
@@ -81,9 +88,7 @@ export default function LoginPage() {
   }
 
   const handlePinChange = (value: string) => {
-    const next = value.replace(/\D/g, '').slice(0, 4)
-    setPin(next)
-    if (next) setError('')
+    setPinValue(value)
   }
 
   return (
@@ -109,7 +114,8 @@ export default function LoginPage() {
             onKey={handleKey}
             onPinChange={handlePinChange}
             onSubmit={submitPin}
-            onBack={() => { setStep('select'); setPin(''); setError('') }}
+            inputRef={pinInputRef}
+            onBack={() => { setStep('select'); setPinValue(''); setError('') }}
           />
         )}
       </div>
@@ -170,6 +176,7 @@ function PinScreen({
   onKey,
   onPinChange,
   onSubmit,
+  inputRef,
   onBack,
 }: {
   user: AppUser
@@ -179,11 +186,13 @@ function PinScreen({
   onKey: (k: string) => void
   onPinChange: (value: string) => void
   onSubmit: (pin: string) => void
+  inputRef: React.RefObject<HTMLInputElement | null>
   onBack: () => void
 }) {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!loading && pin.length === 4) onSubmit(pin)
+    const value = inputRef.current?.value ?? pin
+    if (!loading && value.length === 4) onSubmit(value)
   }
 
   return (
@@ -236,8 +245,9 @@ function PinScreen({
           inputMode="numeric"
           autoComplete="current-password"
           maxLength={4}
-          value={pin}
+          ref={inputRef}
           autoFocus
+          onInput={event => onPinChange(event.currentTarget.value)}
           onChange={event => onPinChange(event.target.value)}
           disabled={loading}
           className="w-full h-12 rounded-2xl bg-white shadow-card px-4 text-center text-[18px] font-semibold tracking-[0.3em] text-ios-primary outline-none focus:ring-2 focus:ring-ios-primary disabled:opacity-50"
