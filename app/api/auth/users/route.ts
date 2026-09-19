@@ -1,25 +1,27 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 
-// Returns the list of active employee names + the owner entry.
-// Used by the login screen user-selector. Only names + IDs are returned (no PINs).
+// Only public profile metadata is returned. PIN hashes never leave the server.
 export async function GET() {
   try {
     const supabase = createServiceClient()
-    const { data: employees } = await supabase
-      .from('app_employees')
-      .select('id, name')
+    const { data: profiles, error } = await supabase
+      .from('app_profiles')
+      .select('id, name, role')
       .eq('is_active', true)
       .order('name')
 
+    if (error) throw error
+
     return NextResponse.json({
-      employees: (employees ?? []).map(e => ({
-        id: e.id,
-        name: e.name,
-        type: 'employee',
+      profiles: (profiles ?? []).map(profile => ({
+        id: profile.id,
+        name: profile.name,
+        type: profile.role,
       })),
     })
   } catch {
-    return NextResponse.json({ employees: [] })
+    // Do not disguise an infrastructure failure as an empty profile list.
+    return NextResponse.json({ error: 'Não foi possível carregar os perfis.' }, { status: 503 })
   }
 }

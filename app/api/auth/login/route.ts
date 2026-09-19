@@ -6,6 +6,7 @@ import { sessionOptions } from '@/lib/session'
 import type { SessionData } from '@/lib/session'
 import { createServiceClient } from '@/lib/supabase/service'
 import { DEFAULT_EMPLOYEE_PERMISSIONS, type PermissionSet } from '@/lib/permissions'
+import { getOwnerUserId } from '@/lib/supabase/service'
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 function checkRateLimit(ip: string) {
@@ -53,64 +54,28 @@ export async function POST(request: NextRequest) {
   let resolvedUserId: string
   let permissions: PermissionSet = {}
 
-  if (userId === 'owner') {
-    const ownerPinHash = process.env.OWNER_PIN_HASH
-    if (!ownerPinHash) {
-      return NextResponse.json({ error: 'Sistema não configurado.' }, { status: 500 })
-    }
-    if (!compareSync(pin, ownerPinHash)) {
-      return NextResponse.json({ error: 'PIN incorreto.' }, { status: 401 })
-    }
-
-    role = 'owner'
-    name = process.env.OWNER_NAME ?? 'Proprietário'
-    resolvedUserId = 'owner'
-  } else {
+  try {
     const supabase = createServiceClient()
-
-    // Prefer the new schema with granular permissions. If the preview database
-    // has not had the migration applied yet, fall back to the legacy columns
-    // so existing employees can still log in and test the preview safely.
-    let employee: {
-      id: string
-      name: string
-      pin_hash: string
-      is_active: boolean
-      permissions?: PermissionSet | null
-    } | null = null
-
-    const withPermissions = await supabase
-      .from('app_employees')
-      .select('id, name, pin_hash, is_active, permissions')
+    const { data: profile, error } = await supabase
+      .from('app_profiles')
+      .select('id, name, role, pin_hash, is_active, permissions')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
-    if (!withPermissions.error && withPermissions.data) {
-      employee = withPermissions.data
-    } else {
-      const legacy = await supabase
-        .from('app_employees')
-        .select('id, name, pin_hash, is_active')
-        .eq('id', userId)
-        .single()
-
-      if (!legacy.error && legacy.data) employee = legacy.data
-    }
-
-    if (!employee || !employee.is_active) {
-      return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 401 })
-    }
-    if (!compareSync(pin, employee.pin_hash)) {
+    if (error) throw error
+    if (!profile || !profile.is_active || !compareSync(pin, profile.pin_hash)) {
       return NextResponse.json({ error: 'PIN incorreto.' }, { status: 401 })
     }
 
-    role = 'employee'
-    name = employee.name
-    resolvedUserId = employee.id
-    permissions = {
-      ...DEFAULT_EMPLOYEE_PERMISSIONS,
-      ...(employee.permissions ?? {}),
-    }
+    role = profile.role as 'owner' | 'employee'
+    name = profile.name
+    // Business records remain owned by the established Supabase owner account.
+    resolvedUserId = role === 'owner' ? getOwnerUserId() : profile.id
+    permissions = role === 'employee'
+      ? { ...DEFAULT_EMPLOYEE_PERMISSIONS, ...(profile.permissions ?? {}) }
+      : {}
+  } catch {
+    return NextResponse.json({ error: 'Sistema de autenticação indisponível.' }, { status: 503 })
   }
 
   const cookieStore = await cookies()

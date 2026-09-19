@@ -15,7 +15,8 @@ function sanitizePermissions(input?: PermissionSet): PermissionSet {
 
 export async function getEmployees() {
   await requireOwner(); const supabase = createServiceClient()
-  const { data } = await supabase.from('app_employees').select('id, name, is_active, permissions, created_at').order('name')
+  const { data, error } = await supabase.from('app_profiles').select('id, name, is_active, permissions, created_at').eq('role', 'employee').order('name')
+  if (error) throw new Error(error.message)
   return data ?? []
 }
 
@@ -24,35 +25,28 @@ export async function addEmployee(name: string, pin: string, permissions?: Permi
   if (!name.trim()) throw new Error('Nome é obrigatório.')
   if (!/^\d{4}$/.test(pin)) throw new Error('PIN deve ter 4 dígitos numéricos.')
   const supabase = createServiceClient()
-  const { error } = await supabase.from('app_employees').insert({ name: name.trim(), pin_hash: hashSync(pin, 10), is_active: true, permissions: sanitizePermissions(permissions) })
+  const { error } = await supabase.from('app_profiles').insert({ name: name.trim(), role: 'employee', pin_hash: hashSync(pin, 10), is_active: true, permissions: sanitizePermissions(permissions) })
   if (error) throw new Error(error.message); revalidatePath('/admin')
 }
 
 export async function updateEmployeePermissions(id: string, permissions: PermissionSet) {
   await requireOwner(); const supabase = createServiceClient()
-  const { error } = await supabase.from('app_employees').update({ permissions: sanitizePermissions(permissions), updated_at: new Date().toISOString() }).eq('id', id)
+  const { error } = await supabase.from('app_profiles').update({ permissions: sanitizePermissions(permissions), updated_at: new Date().toISOString() }).eq('id', id).eq('role', 'employee')
   if (error) throw new Error(error.message); revalidatePath('/admin')
 }
 
 export async function updateEmployeePin(id: string, newPin: string) {
   await requireOwner(); if (!/^\d{4}$/.test(newPin)) throw new Error('PIN deve ter 4 dígitos numéricos.')
-  const { error } = await createServiceClient().from('app_employees').update({ pin_hash: hashSync(newPin, 10), updated_at: new Date().toISOString() }).eq('id', id)
+  const { error } = await createServiceClient().from('app_profiles').update({ pin_hash: hashSync(newPin, 10), updated_at: new Date().toISOString() }).eq('id', id)
   if (error) throw new Error(error.message); revalidatePath('/admin')
 }
 
 export async function toggleEmployee(id: string, isActive: boolean) {
-  await requireOwner(); const { error } = await createServiceClient().from('app_employees').update({ is_active: isActive, updated_at: new Date().toISOString() }).eq('id', id)
+  await requireOwner(); const { error } = await createServiceClient().from('app_profiles').update({ is_active: isActive, updated_at: new Date().toISOString() }).eq('id', id).eq('role', 'employee')
   if (error) throw new Error(error.message); revalidatePath('/admin')
 }
 
 export async function deleteEmployee(id: string) {
-  await requireOwner(); const { error } = await createServiceClient().from('app_employees').delete().eq('id', id)
+  await requireOwner(); const { error } = await createServiceClient().from('app_profiles').delete().eq('id', id).eq('role', 'employee')
   if (error) throw new Error(error.message); revalidatePath('/admin')
-}
-
-export async function updateOwnerPin(currentPin: string, newPin: string) {
-  await requireOwner(); if (!/^\d{4}$/.test(newPin)) throw new Error('Novo PIN deve ter 4 dígitos numéricos.')
-  const { compareSync } = await import('bcryptjs'); const ownerHash = process.env.OWNER_PIN_HASH
-  if (!ownerHash || !compareSync(currentPin, ownerHash)) throw new Error('PIN atual incorreto.')
-  return { newHash: hashSync(newPin, 10) }
 }

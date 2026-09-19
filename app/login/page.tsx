@@ -7,12 +7,6 @@ import { cn } from '@/lib/utils'
 
 type AppUser = { id: string; name: string; type: 'owner' | 'employee' }
 
-const OWNER_USER: AppUser = {
-  id: 'owner',
-  name: process.env.NEXT_PUBLIC_OWNER_NAME ?? 'Proprietário',
-  type: 'owner',
-}
-
 const PIN_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del']
 
 export default function LoginPage() {
@@ -21,15 +15,19 @@ export default function LoginPage() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [employees, setEmployees] = useState<AppUser[]>([])
+  const [profiles, setProfiles] = useState<AppUser[]>([])
+  const [profilesError, setProfilesError] = useState('')
   const isSubmittingRef = useRef(false)
   const router = useRouter()
 
   useEffect(() => {
-    fetch('/api/auth/users')
-      .then(r => r.json())
-      .then(data => setEmployees(data.employees ?? []))
-      .catch(() => {})
+    fetch('/api/auth/users', { cache: 'no-store' })
+      .then(async r => {
+        const data = await r.json()
+        if (!r.ok) throw new Error(data.error)
+        setProfiles(data.profiles ?? [])
+      })
+      .catch(() => setProfilesError('Não foi possível carregar os perfis. Atualize a página e tente novamente.'))
   }, [])
 
   const selectUser = (user: AppUser) => {
@@ -88,8 +86,6 @@ export default function LoginPage() {
     if (next) setError('')
   }
 
-  const users = [OWNER_USER, ...employees]
-
   return (
     <div className="min-h-dvh bg-ios-bg flex flex-col">
       <div className="flex-1 flex flex-col justify-center px-6 pb-8">
@@ -103,7 +99,7 @@ export default function LoginPage() {
         </div>
 
         {step === 'select' ? (
-          <UserSelectScreen users={users} onSelect={selectUser} />
+          <UserSelectScreen users={profiles} error={profilesError} onSelect={selectUser} />
         ) : (
           <PinScreen
             user={selectedUser!}
@@ -127,9 +123,11 @@ export default function LoginPage() {
 
 function UserSelectScreen({
   users,
+  error,
   onSelect,
 }: {
   users: AppUser[]
+  error: string
   onSelect: (u: AppUser) => void
 }) {
   return (
@@ -159,6 +157,7 @@ function UserSelectScreen({
           </button>
         ))}
       </div>
+      {error && <p role="alert" className="mt-4 text-center text-sm text-expense">{error}</p>}
     </div>
   )
 }
